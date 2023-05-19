@@ -56,3 +56,4 @@ p <- p + theme(panel.grid.major = element_blank(), panel.grid.minor = element_bl
 p <- p + theme(legend.position = 'top')
 p
 ggsave(p, filename = paste0("Bray Curtis-", group, ".pdf"), device = "pdf", width = 5, height = 5)
+
