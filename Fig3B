@@ -1,5 +1,5 @@
 
-#fastspar
+#fastspar caculated correlation between bacteria species and species
 fastspar --otu_table species_count.tsv --correlation median_correlation.tsv --covariance median_covariance.tsv --iterations 50
 
 mkdir bootstrap_counts
@@ -55,12 +55,36 @@ net_use$pn <- ifelse(net_use$cor > 0, "positive", "negative")
 
 write.xlsx(x = net_use, file = "net_use.xlsx", overwrite = T)
 #######################################################################################################
+#spearman caculated correlation between bacteria species and clinical variables
+rel_otu <- read.delim("rel_otu.txt", header = T, row.names = 1, sep = "\t", check.names = F, stringsAsFactors = F)
 
+metadata <- read.delim("metadata_sel.txt", header = T, row.names = 1, sep = "\t", check.names = F, stringsAsFactors = F)
+metadata <- metadata[rownames(metadata) %in% rel_otu$Sample,]
+metadata <- metadata[rel_otu$Sample,]
 
+all(rownames(metadata)==rel_otu$Sample)
 
+res <- data.frame()
+n <- 1
 
+for (i in 2:ncol(rel_otu)) {
+  for (j in 1:ncol(metadata)) {
+    
+    res[n,1] <- colnames(rel_otu)[i]
+    res[n,2] <-colnames(metadata)[j]
+    
+    tmp <- cbind(rel_otu[,i], metadata[,j])
+    tmp <- as.data.frame(tmp)
+    tmp <- tmp[!tmp[,2] %in% "Other",]
+    
+    tmp2 <- cor.test(x = as.numeric(tmp[,1]), y = as.numeric(as.factor(tmp[,2])), method = "spearman")
+    
+    res[n,3] <- tmp2$estimate
+    res[n,4] <- tmp2$p.value
+    
+    n <- n+1
+  }
+}
 
-
-
-
+write.xlsx(x = as.data.frame(res), file = "spearman_res.xlsx")
 
