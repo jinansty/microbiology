@@ -1,0 +1,66 @@
+
+#fastspar
+fastspar --otu_table species_count.tsv --correlation median_correlation.tsv --covariance median_covariance.tsv --iterations 50
+
+mkdir bootstrap_counts
+fastspar_bootstrap --otu_table species_count.tsv --number 1000 --prefix bootstrap_counts/net_data
+
+mkdir bootstrap_correlation
+for fname in `ls bootstrap_counts`
+do
+echo $fname
+fastspar --otu_table bootstrap_counts/$fname --correlation bootstrap_correlation/cor_$fname --covariance bootstrap_correlation/cov_$fname --iterations 10
+done
+
+fastspar_exactpvalues --otu_table species_count.tsv --correlation median_correlation.tsv --prefix bootstrap_correlation/cor_net_data_ --permutations 1000 --outfile pvalues.tsv
+#######################################################################################################
+#handle the fastspar results by R
+library(tidyverse)
+
+correlation <- read.delim("median_correlation.tsv", row.names = 1, check.names = F, stringsAsFactors = F)
+
+a <- correlation
+a[lower.tri(a, diag = T)] <- NA
+
+tmp <- a %>% as_tibble(.) %>%
+  add_column(Var1=rownames(a)) %>%
+  gather(rownames(a), key='Var2', value='cor')
+tmp_cor <- tmp[!is.na(tmp$cor),]
+#-------------------------------------------------------
+pvalue <- read.delim("pvalues.tsv", row.names = 1, check.names = F, stringsAsFactors = F)
+
+a <- pvalue
+a[lower.tri(a, diag = T)] <- NA
+
+tmp <- a %>% as_tibble(.) %>%
+  add_column(Var1=rownames(a)) %>%
+  gather(rownames(a), key='Var2', value='pval')
+tmp_pval <- tmp[!is.na(tmp$pval),]
+#----------------------------------------------------------------------
+all(tmp_cor$Var1 == tmp_pval$Var1)
+all(tmp_cor$Var2 == tmp_pval$Var2)
+
+net <- cbind(tmp_cor, tmp_pval)
+net <- net[,c(1,2,3,6)]
+
+net_use <- net[net$pval < 0.01,]
+
+#caculate mean+sd  
+a1 <- mean(net_use$cor)+sd(net_use$cor)
+#caculate mean-sd
+a2 <- mean(net_use$cor)-sd(net_use$cor)
+
+net_use <- net_use[(net_use$cor > a1 | net_use$cor < a2),]
+net_use$pn <- ifelse(net_use$cor > 0, "positive", "negative")
+
+write.xlsx(x = net_use, file = "net_use.xlsx", overwrite = T)
+#######################################################################################################
+
+
+
+
+
+
+
+
+
