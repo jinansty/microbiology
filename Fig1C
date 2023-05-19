@@ -46,10 +46,8 @@ p <- p + geom_hline(yintercept=0, linetype=4, color="grey")
 p <- p + geom_vline(xintercept=0, linetype=4, color="grey") 
 p <- p + scale_color_stepsn(group, breaks = seq(from = min(points[,group]), to = max(points[,group]), by = 3),
                             colors = colorRampPalette(c("#004382CC", "#06B0F2CC", "#008B00CC", "green", "#FCFC06CC", "orange", "#DD1615CC"))(100))
-
-points.sel <- points[points[,group] > mean(points[,group])-sd(points[,group]),]
-
-p <- p + stat_ellipse(data = points.sel, aes(x = x, y = y), geom = "polygon", linetype = 2, size=0.8, alpha = 0.1, level = 0.4)
+#points.sel <- points[points[,group] > mean(points[,group])-sd(points[,group]),]
+#p <- p + stat_ellipse(data = points.sel, aes(x = x, y = y), geom = "polygon", linetype = 2, size=0.8, alpha = 0.1, level = 0.4)
 p <- p + theme_bw()
 p <- p + theme(legend.title = element_text(size = 12))
 p <- p + theme(legend.text = element_text(size = 10))
