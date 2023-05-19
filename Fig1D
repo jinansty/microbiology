@@ -1,0 +1,69 @@
+
+library(openxlsx)
+library(funrar)
+library(reshape2)
+library(ggsci)
+library(PupillometryR)
+library(ggplot2)
+
+otu <- read.delim("otu_use.txt", row.names = 1, sep = "\t", check.names = F, stringsAsFactors = F)
+taxnomy <- read.xlsx("taxonomy_use.xlsx", sheet = 1)
+
+#-------------------------------------------------------------------------------------
+#Calculate count abundance - observed OTU
+otu$otu <- rownames(otu)
+otu_species <- merge(otu, taxnomy[,c(1,8)], by.x = "otu", by.y = "OTU")
+otu_species <- otu_species[,-1]
+
+otu_species <- aggregate(x = otu_species[,-ncol(otu_species)], by = list(otu_species[,ncol(otu_species)]), FUN = sum)
+rownames(otu_species) <- otu_species$Group.1
+otu_species <- otu_species[,-1]
+otu_species <- otu_species[!rownames(otu_species) %in% "Other",]
+write.xlsx(otu_species, file = "count_otu_species.xlsx", rowNames = T, overwrite = T)
+#-------------------------------------------------------------------------------------
+#Calculate relative abundance
+rel_otu <- make_relative(t(otu))
+rel_otu <- as.data.frame(t(rel_otu))
+
+rel_otu$otu <- rownames(rel_otu)
+rel_otu_species <- merge(rel_otu, taxnomy[,c(1,8)], by.x = "otu", by.y = "OTU")
+rel_otu_species <- rel_otu_species[,-1]
+
+rel_otu_species <- aggregate(x = rel_otu_species[,-ncol(rel_otu_species)], by = list(rel_otu_species[,ncol(rel_otu_species)]), FUN = sum)
+rownames(rel_otu_species) <- rel_otu_species$Group.1
+rel_otu_species <- rel_otu_species[,-1]
+rel_otu_species <- rel_otu_species[!rownames(rel_otu_species) %in% "Other",]
+write.xlsx(rel_otu_species, file = "rel_otu_species.xlsx", rowNames = T)
+#-------------------------------------------------------------------------------------
+#Calculate the species that appear in over 90% of the samples
+x.left <- c()
+for (i in 1:nrow(otu_species)) {
+  x.left[i] <- sum(otu_species[i,] > 0) >= ncol(otu_species)*0.9
+}
+otu.sel <- otu_species[x.left,]
+
+sum(otu.sel[6,] > 0)
+write.xlsx(as.data.frame(t(otu.sel)), "species_0.9.xlsx", rowNames = T)
+#-------------------------------------------------------------------------------------
+otu.sel$species <- rownames(otu.sel)
+otu.sel <- melt(otu.sel, id.vars = "species")
+otu.sel$species <- as.factor(otu.sel$species)
+
+cols <- c("Lactobacillus_crispatus" = "#FF69B4CC", "Lactobacillus_iners" = "#20B2AACC",
+          "Lactobacillus_gasseri" = "#FF7F00CC", "Lactobacillus_jensenii" = "#FDBF6FCC",
+          "Gardnerella_vaginalis" = "#00468BCC", "Ureaplasma_parvum" = "#6A3D9ACC")
+
+q <- ggplot(data = otu.sel, aes(x= factor(species, levels=c("Lactobacillus_gasseri", "Lactobacillus_jensenii", 
+                                                       "Gardnerella_vaginalis", "Ureaplasma_parvum",
+                                                       "Lactobacillus_iners", "Lactobacillus_crispatus")),
+                                    y = log2(value+1), fill = species))
+q <- q + geom_flat_violin(aes(fill=species, color=species), position = position_nudge(x=0.1))
+q <- q + geom_boxplot(width=0.05, position = position_nudge(x=0.05), outlier.colour =NA)
+q <- q + geom_dotplot(binaxis = "y", binwidth = 0.07, stackdir = "down", dotsize = 0.085, mapping = aes(fill=species, color=species))
+q <- q + scale_fill_manual(values = cols)
+q <- q + scale_color_manual(values = cols)
+q <- q + ylab("log2(observed OTU+1) transformed Abandance") + xlab("Species detected in >90% Samples")
+q <- q + coord_flip()
+q <- q + theme_bw()+theme(legend.position = 'none')
+q
+ggsave(plot = q, filename = paste0("Top6_species.pdf"), width = 6, height = 8)
