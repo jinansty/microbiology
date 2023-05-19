@@ -1,0 +1,144 @@
+
+#Maaslin analysis
+library(Maaslin2)
+library(openxlsx)
+library(funrar)
+
+#Data
+df_input_data <- read.xlsx("rel_otu_species.xlsx", sheet = 1)
+rownames(df_input_data) <- df_input_data$Species
+df_input_data <- df_input_data[,-1]
+df_input_data <- t(df_input_data)
+df_input_data <- as.data.frame(df_input_data)
+
+#Metadata
+df_input_metadata <- read.xlsx("0316_metadata.xlsx", sheet = 1)
+rownames(df_input_metadata) <- df_input_metadata$Vid
+df_input_metadata <- df_input_metadata[,-c(1)]
+
+for (i in 1:ncol(df_input_metadata)) {
+  df_input_metadata[,i] <- as.factor(df_input_metadata[,i])
+}
+
+df_input_data <- df_input_data[rownames(df_input_metadata),]
+###########################################################################################
+#Strategies for adjusting each variable
+Age <- c("Age", "Delivery.mode", "Edu", "BMI", "Dou", "HGB.group", "Date", "Sex")
+MENO <- c("MENO", "Delivery.mode", "Edu", "BMI", "Dou", "HGB.group", "Date", "Sex")
+E2.Group <- c("E2.Group", "Delivery.mode", "Edu", "BMI", "Dou", "Date") 
+FSH2 <- c("FSH2", "Delivery.mode", "Edu", "BMI", "Dou", "Date", "Sex")
+Contra <- c("Contra", "Age", "Delivery.mode", "Edu", "BMI", "Dou", "HGB.group", "Date") 
+Excer <- c("Excer", "Age", "Delivery.mode", "Edu", "BMI", "Dou", "HGB.group", "Date") 
+Sex <- c("Sex", "Age", "Delivery.mode", "Edu", "BMI", "Dou", "HGB.group", "Date") 
+BMI <- c("BMI", "Age", "Delivery.mode", "Edu", "BMI", "Dou", "HGB.group", "Date", "Sex")
+BV <- c("BV", "Age", "Delivery.mode", "Edu", "BMI", "Dou", "HGB.group", "Date", "Sex")
+CSU <- c("CSU", "Age", "Edu", "BMI", "Dou", "HGB.group", "Date", "Sex") 
+Parity <- c("Parity", "Age", "Edu", "BMI", "Dou", "HGB.group", "Date", "Sex")
+Delivery.mode <- c("Delivery.mode", "Age", "Edu", "BMI", "Dou", "HGB.group", "Date", "Sex") 
+AMH <- c("AMH", "Delivery.mode", "Edu", "BMI", "Dou", "HGB.group", "Date", "Sex") 
+LHb.Group <- c("LHb.Group", "Age", "Delivery.mode", "Edu", "BMI", "Dou", "Date", "Sex") 
+T <- c("T", "Age", "Delivery.mode", "Edu", "BMI", "Dou", "Date", "Sex") 
+Dou <- c("Dou", "Age", "Delivery.mode", "Edu", "BMI", "Dou", "HGB.group", "Date", "Sex")
+OT2 <- c("OT2", "Age", "Delivery.mode", "Edu", "BMI", "Dou", "HGB.group", "Sex") 
+Date <- c("Date", "Age", "Delivery.mode", "Edu", "BMI", "Dou", "HGB.group", "Sex") 
+Residence <- c("Residence", "Age", "Delivery.mode", "Edu", "BMI", "Dou", "HGB.group", "Date", "Sex")
+Income <- c("Income", "Age", "Delivery.mode", "Edu", "BMI", "Dou", "HGB.group", "Date", "Sex")
+Edu <- c("Edu", "Age", "Delivery.mode", "BMI", "Dou", "HGB.group", "Date", "Sex") 
+PRO <- c("PRO", "Age", "Delivery.mode", "BMI", "Dou", "HGB.group", "Date", "Sex") 
+VVC <- c("VVC", "Age", "Delivery.mode", "Edu", "BMI", "Dou", "HGB.group", "Date", "Sex")
+HGB.group <- c("HGB.group", "Age", "Delivery.mode", "Edu", "BMI", "Dou", "Date", "Sex") 
+E2b.Group <- c("E2b.Group", "Age", "Delivery.mode", "Edu", "BMI", "Dou", "Date", "Sex") 
+AMS <- c("AMS", "Age", "Edu", "BMI", "Dou", "HGB.group", "Date", "Sex")
+###########################################################################################
+if(all(rownames(df_input_data)==rownames(df_input_metadata))){
+  fit_data <- Maaslin2(input_data = as.matrix(df_input_data), 
+                       input_metadata = df_input_metadata,
+                       output = "AMS",
+                       fixed_effects = AMS,
+                       normalization = 'NONE', standardize = FALSE, transform = "AST")
+}
+#---------------------------------------------------------------
+if(all(rownames(df_input_data)==rownames(df_input_metadata))){
+  fit_data <- Maaslin2(input_data = as.matrix(df_input_data), 
+                       input_metadata = df_input_metadata,
+                       output = "Residence", reference = "Residence, JN",
+                       fixed_effects = Residence,
+                       normalization = 'NONE', standardize = FALSE, transform = "AST")
+}
+###########################################################################################
+#plot the result heatmap
+library(openxlsx)
+
+for (i in 1:26) {assign(x = paste0("a", i), value = read.xlsx("MaAslin.xlsx", sheet = i))}
+
+dir <- paste0("a", 1:26)
+plot.data <- do.call(rbind, lapply(dir, get))
+plot.data$pval <- as.numeric(as.character(plot.data$pval))
+plot.data$qval <- as.numeric(as.character(plot.data$qval))
+
+plot.data.sel <- plot.data[plot.data$qval < 0.1,]
+plot.data.sel$pval <- as.numeric(plot.data.sel$pval)
+plot.data.sel$qval <- as.numeric(plot.data.sel$qval)
+#-----------------------------------------------------------------
+#Value Conversion
+plot.data.sel$plotvalue <- -log(plot.data.sel$qval)*sign(plot.data.sel$coef)
+plot.data.sel$plotvalue <- pmax(-20, pmin(20, plot.data.sel$plotvalue))
+#-----------------------------------------------------------------
+library(pheatmap)
+
+metadata <- plot.data.sel$metadata
+data <- plot.data.sel$feature
+dfvalue <- plot.data.sel$value
+value <- plot.data.sel$plotvalue
+
+verbose_metadata <- c()
+metadata_multi_level <- c()
+for (i in unique(metadata)) {
+  levels <- unique(plot.data.sel$value[plot.data.sel$metadata == i])
+  if (length(levels) > 1) {
+    metadata_multi_level <- c(metadata_multi_level, i)
+    for (j in levels) {
+      verbose_metadata <- c(verbose_metadata, paste(i, j))
+    }
+  } else {
+    verbose_metadata <- c(verbose_metadata, i)
+  }
+}
+
+n <- length(unique(data))
+m <- length(unique(verbose_metadata))
+
+a = matrix(0, nrow = n, ncol = m)
+a <- as.data.frame(a)
+
+rownames(a) <- unique(data)
+colnames(a) <- unique(verbose_metadata)
+
+for (i in seq_len(dim(plot.data.sel)[1])) {
+  current_metadata <- metadata[i]
+  if (current_metadata %in% metadata_multi_level) {
+    current_metadata <- paste(metadata[i], dfvalue[i])
+  }
+  if (abs(a[as.character(data[i]), as.character(current_metadata)]) > abs(value[i]))
+    next
+  a[as.character(data[i]), as.character(current_metadata)] <- value[i]
+}
+
+#get the range for the colorbar
+max_value <- ceiling(max(a))
+min_value <- ceiling(min(a))
+range_value <- max(c(abs(max_value),abs(min_value)))
+breaks <- seq(-1*range_value, range_value, by = 1)
+#-------------------------------------------------------------------
+pdf(file = "significant_difference.pdf", width = 12, height = 8)
+pheatmap(a, cellwidth = 10, cellheight = 10, fontsize = 7,
+  kmeans_k = NA, border = TRUE, scale = "none",
+  show_rownames = TRUE, show_colnames = TRUE,
+  cluster_rows = T, cluster_cols = F,
+  clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean",
+  legend = TRUE, border_color = "white",
+  color = colorRampPalette(c("#20B2AA", "#F5F5F5", "#FF69B4"))(40),
+  breaks = breaks, gaps_col = c(3,5,6,9,11,14,16,19,22,24,27,30,34,36,37,42,48,50,53,56,57,58),
+  treeheight_col = 0, display_numbers = matrix(ifelse(a > 0, "+", ifelse(a < 0, "-", "")), nrow(a)))
+dev.off()
+
