@@ -55,7 +55,7 @@ p
 
 ggsave('species_taxa_barplot.pdf', p, width = 16, height = 6)
 #############################################################################################
-#
+#Fig 5D
 
 species_top15_group_1 <- species_top15_group[species_top15_group$Group %in% "1",]
 species_top15_group_1 <- species_top15_group_1[order(as.numeric(species_top15_group_1$Lactobacillus_crispatus), decreasing = T),]
