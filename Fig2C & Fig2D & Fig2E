@@ -1,8 +1,6 @@
 
 library(ggplot2)
 library(ggpubr)
-library(ggsci)
-library(PupillometryR)
 
 #PRO
 alpha_plot <- merge(alpha, metadata[,c("Vid", "PRO")], by.x = "Sample", by.y = "Vid", all.x = T)
