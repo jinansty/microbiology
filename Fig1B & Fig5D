@@ -1,0 +1,124 @@
+
+library(openxlsx)
+
+species <- read.xlsx("rel_otu_species.xlsx", sheet = 1, rowNames = T)
+
+species$sum <- rowSums(species)
+species <- species[order(species$sum, decreasing = TRUE), ]
+
+species_top15 <- species[c(1:4, 6:17), -ncol(species)]
+
+species_top15['Others', ] <- 1 - colSums(species_top15)
+colSums(species_top15)
+#################################################################################
+#Fig1B
+
+library(reshape2)
+library(ggplot2)
+library(forcats)
+library(dplyr)
+
+species_top15$Taxonomy <- factor(rownames(species_top15), levels = rev(rownames(species_top15)))
+species_top15_plot <- melt(species_top15, id = 'Taxonomy')
+
+#add vagitype group
+group <- read.xlsx('group.xlsx', sheet = 1)
+names(group)[1] <- 'variable'
+species_top15_plot <- merge(species_top15_plot, group, by = 'variable')
+
+species_top15_plot$value <- abs(species_top15_plot$value)
+
+species_top15_group <- as.data.frame(t(species_top15))
+species_top15_group$variable <- rownames(species_top15_group)
+
+species_top15_group <- merge(species_top15_group, group, by = 'variable')
+
+species_top15_group <- species_top15_group[order(as.numeric(species_top15_group$Lactobacillus_crispatus)),]
+species_top15_plot$Group <- as.factor(species_top15_plot$Group)
+
+species_top15_plot$variable <- factor(species_top15_plot$variable, levels = species_top15_group$variable)
+
+p <- ggplot(species_top15_plot, aes(variable, 100 * value, fill = Taxonomy))
+p <- p + geom_col(position="stack")
+p <- p + scale_fill_manual(values = c("Lactobacillus_crispatus"  = "#FF69B4", "Lactobacillus_iners"  = "#20B2AA",
+                                      "Gardnerella_vaginalis"  = "#00468BFF", "Atopobium_vaginae"  = "#33A02CFF",
+                                      "Aerococcus_christensenii" = "grey", "Ureaplasma_parvum"  = "#6A3D9AFF",
+                                      "Prevotella_bivia" = "#02786A", "Lactobacillus_jensenii"  = "#FDBF6FFF",
+                                      "Prevotella_amnii" = "#AD002AFF", "Prevotella_buccalis"  = "#1F78B4FF",
+                                      "Lactobacillus_delbrueckii" = "#B2DF8AFF", "Sneathia_sanguinegens"  = "#A6CEE3FF",
+                                      "Others" = "black", "Bvab1" = "yellow",
+                                      "Streptococcus_agalactiae"  = "#FF00FF", "Prevotella_timonensis"  = "#ED0000FF",
+                                      "Lactobacillus_gasseri" = "#FF7F00FF"))
+p <- p + labs(x = '', y = 'Relative Abundance(%)')
+p <- p + theme(axis.ticks.x = element_blank(), axis.line.x = element_blank(), axis.text.x = element_blank())
+p
+
+ggsave('species_taxa_barplot.pdf', p, width = 16, height = 6)
+#############################################################################################
+#
+
+species_top15_group_1 <- species_top15_group[species_top15_group$Group %in% "1",]
+species_top15_group_1 <- species_top15_group_1[order(as.numeric(species_top15_group_1$Lactobacillus_crispatus), decreasing = T),]
+
+species_top15_group_2 <- species_top15_group[species_top15_group$Group %in% "2",]
+species_top15_group_2 <- species_top15_group_2[order(as.numeric(species_top15_group_2$Lactobacillus_crispatus), decreasing = T),]
+
+species_top15_group_3 <- species_top15_group[species_top15_group$Group %in% "3",]
+species_top15_group_3 <- species_top15_group_3[order(as.numeric(species_top15_group_3$Lactobacillus_iners), decreasing = T),]
+
+species_top15_group_4 <- species_top15_group[species_top15_group$Group %in% "4",]
+species_top15_group_4 <- species_top15_group_4[order(as.numeric(species_top15_group_4$Lactobacillus_jensenii), decreasing = T),]
+
+species_top15_group_5 <- species_top15_group[species_top15_group$Group %in% "5",]
+species_top15_group_5 <- species_top15_group_5[order(as.numeric(species_top15_group_5$Lactobacillus_gasseri), decreasing = T),]
+
+species_top15_group_6 <- species_top15_group[species_top15_group$Group %in% "6",]
+species_top15_group_6 <- species_top15_group_6[order(as.numeric(species_top15_group_6$Gardnerella_vaginalis), decreasing = T),]
+
+species_top15_group_7 <- species_top15_group[species_top15_group$Group %in% "7",]
+species_top15_group_7 <- species_top15_group_7[order(as.numeric(species_top15_group_7$Atopobium_vaginae), decreasing = T),]
+
+species_top15_group_8 <- species_top15_group[species_top15_group$Group %in% "8",]
+species_top15_group_8 <- species_top15_group_8[order(as.numeric(species_top15_group_8$Prevotella_timonensis), decreasing = T),]
+
+species_top15_group_9 <- species_top15_group[species_top15_group$Group %in% "9",]
+species_top15_group_9 <- species_top15_group_9[order(as.numeric(species_top15_group_9$Prevotella_bivia), decreasing = T),]
+
+species_top15_group_10 <- species_top15_group[species_top15_group$Group %in% "10",]
+species_top15_group_10 <- species_top15_group_10[order(as.numeric(species_top15_group_10$Ureaplasma_parvum), decreasing = T),]
+
+species_top15_group_11 <- species_top15_group[species_top15_group$Group %in% "11",]
+species_top15_group_11 <- species_top15_group_11[order(as.numeric(species_top15_group_11$Bvab1), decreasing = T),]
+
+species_top15_group_12 <- species_top15_group[species_top15_group$Group %in% "12",]
+species_top15_group_12 <- species_top15_group_12[order(as.numeric(species_top15_group_12$Lactobacillus_delbrueckii), decreasing = T),]
+
+species_top15_group_13 <- species_top15_group[species_top15_group$Group %in% "13",]
+species_top15_group_13 <- species_top15_group_13[order(as.numeric(species_top15_group_13$Others), decreasing = T),]
+
+species_top15_plot$variable <- factor(species_top15_plot$variable, levels = c(species_top15_group_1$variable, species_top15_group_2$variable, 
+                                                                              species_top15_group_3$variable, species_top15_group_4$variable,
+                                                                              species_top15_group_5$variable, species_top15_group_6$variable,
+                                                                              species_top15_group_7$variable, species_top15_group_8$variable,
+                                                                              species_top15_group_9$variable, species_top15_group_10$variable,
+                                                                              species_top15_group_11$variable, species_top15_group_12$variable,
+                                                                              species_top15_group_13$variable))
+
+p <- ggplot(species_top15_plot, aes(variable, 100 * value, fill = Taxonomy))
+p <- p + geom_col(position="stack")
+p <- p + facet_grid(~Group, scales="free_x", space = "free")+theme(panel.spacing = unit(0.2, "lines"))
+p <- p + scale_fill_manual(values = c("Lactobacillus_crispatus"  = "#FF69B4", "Lactobacillus_iners"  = "#20B2AA",
+                                      "Gardnerella_vaginalis"  = "#00468BFF", "Atopobium_vaginae"  = "#33A02CFF",
+                                      "Aerococcus_christensenii" = "grey", "Ureaplasma_parvum"  = "#6A3D9AFF",
+                                      "Prevotella_bivia" = "#02786A", "Lactobacillus_jensenii"  = "#FDBF6FFF",
+                                      "Prevotella_amnii" = "#AD002AFF", "Prevotella_buccalis"  = "#1F78B4FF",
+                                      "Lactobacillus_delbrueckii" = "#B2DF8AFF", "Sneathia_sanguinegens"  = "#A6CEE3FF",
+                                      "Others" = "black", "Bvab1" = "yellow",
+                                      "Streptococcus_agalactiae"  = "#FF00FF", "Prevotella_timonensis"  = "#ED0000FF",
+                                      "Lactobacillus_gasseri" = "#FF7F00FF"))
+p <- p + labs(x = '', y = 'Relative Abundance(%)')
+p <- p + theme(axis.ticks.x = element_blank(), axis.line.x = element_blank(), axis.text.x = element_blank())
+p
+
+ggsave('species_taxa_barplot_wrap.pdf', p, width = 16, height = 6)
+
