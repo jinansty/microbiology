@@ -1,0 +1,109 @@
+
+library(openxlsx)
+
+metadata <- read.xlsx("metadata.xlsx", sheet = 1)
+
+group <- read.xlsx("vagitype.xlsx", sheet = 1)
+group <- group[order(group$Group),]
+
+metadata <- merge(metadata, group, by.x = "Vid", by.y = "Vid")
+
+rownames(metadata) <- metadata[,1]
+metadata <- metadata[,-1]
+
+metadata <- t(metadata)
+
+metadata[metadata %in% "Other"] <- -1
+
+metadata_use <- as.data.frame(metadata)
+for (i in 1:ncol(metadata_use)) {
+  metadata_use[,i] <- as.numeric(metadata_use[,i])
+}
+
+metadata_use <- as.data.frame(t(metadata_use))
+metadata_use <- metadata_use[,-1]
+
+for (i in 1:26) {
+  metadata_use <- metadata_use[order(metadata_use[,i]),]
+}
+
+metadata_use <- metadata_use[order(metadata_use$Age),]
+metadata_use <- metadata_use[order(metadata_use$BV),]
+metadata_use <- metadata_use[order(metadata_use$Group),]
+
+annotation <- as.data.frame(metadata_use)
+for (i in 1:ncol(annotation)) {
+  annotation[,i] <- as.factor(annotation[,i])
+}
+#-----------------------------------------------------------------------------------------
+library(pheatmap)
+library(ggsci)
+
+rel_species <- read.xlsx("rel_otu_species.xlsx", sheet = 1, rowNames = T)
+rel_species <- rel_species[,rownames(metadata_use)]
+
+sep_sel <- read.xlsx("Venn.xlsx", sheet = 2)
+rel_species <- rel_species[sep_sel$Species,]
+
+all(colnames(rel_species)==rownames(metadata_use))
+
+#scale the data
+scale_test <- log10(rel_species + min(rel_species[rel_species!=0]))
+
+table(as.factor(metadata_use[,"Group"]))
+
+rank <- read.xlsx("order.xlsx", sheet = 1)
+table(as.factor(rank$Group))
+
+pal_lancet("lanonc", alpha = 1)(8)
+pal_npg("nrc", alpha = 1)(5)
+
+annotation_col <- list(Group = c("1"="#00468BFF","2"="#ED0000FF","3"="#42B540FF","4"="yellow",
+                                 "5"="#925E9FFF","6"="#FDAF91FF","7"="#AD002AFF","8"="#E64B35FF",
+                                 "9"="#D02090","10"="#0099B4FF","11"="#FF1493","12"="#FFA500",
+                                 "13"="#363636"),
+                       FSH2 = c("1"="#00468BFF","2"="#ED0000FF","3"="#42B540FF","4"="#0099B4FF",
+                                "5"="#925E9FFF","-1"="lightgrey"),
+                       BV = c("1"="#00468BFF","2"="#ED0000FF","3"="#42B540FF","-1"="lightgrey"),
+                       AMS = c("0"="#0099B4FF","1"="#00468BFF","2"="#ED0000FF","12"="#42B540FF","-1"="lightgrey"),
+                       Excer = c("1"="#00468BFF","2"="#ED0000FF","3"="#42B540FF","4"="#0099B4FF","-1"="lightgrey"),
+                       CSU = c("0"="#0099B4FF","1"="#00468BFF","2"="#ED0000FF","-1"="lightgrey"),
+                       HGB.group = c("1"="#00468BFF","2"="#ED0000FF","3"="#42B540FF","-1"="lightgrey"),
+                       VVC = c("0"="#0099B4FF","1"="#00468BFF","-1"="lightgrey"),
+                       Date = c("3"="#42B540FF","4"="#0099B4FF",
+                                "5"="#925E9FFF","6"="#FDAF91FF","7"="#AD002AFF","8"="#ADB6B6FF",
+                                "9"="orange"), 
+                       OT2 = c("1"="#00468BFF","2"="#ED0000FF","3"="#42B540FF","4"="#0099B4FF",
+                               "5"="#925E9FFF","6"="#FDAF91FF"),
+                       AMH = c("1"="#00468BFF","2"="#ED0000FF","3"="#42B540FF","-1"="lightgrey"),
+                       T = c("1"="#00468BFF","2"="#ED0000FF","3"="#42B540FF","-1"="lightgrey"),
+                       Age = c("1"="#00468BFF","2"="#ED0000FF","3"="#42B540FF","4"="#0099B4FF"),
+                       MENO = c("1"="#00468BFF","2"="#ED0000FF","3"="#42B540FF","-1"="lightgrey"),
+                       E2.Group = c("1"="#00468BFF","2"="#ED0000FF","3"="#42B540FF","-1"="lightgrey"),
+                       E2b.Group = c("1"="#00468BFF","2"="#ED0000FF","-1"="lightgrey"),
+                       LHb.Group = c("1"="#00468BFF","2"="#ED0000FF","3"="#42B540FF","4"="#0099B4FF","-1"="lightgrey"),
+                       Dou = c("1"="#00468BFF","2"="#ED0000FF","3"="#42B540FF","4"="#0099B4FF","-1"="lightgrey"),
+                       Sex = c("1"="#00468BFF","2"="#ED0000FF","3"="#42B540FF","4"="#0099B4FF","5"="#925E9FFF","-1"="lightgrey"),
+                       Contra = c("1"="#00468BFF","2"="#ED0000FF","3"="#42B540FF","4"="#0099B4FF","-1"="lightgrey"),
+                       PRO = c("1"="#00468BFF","2"="#ED0000FF","3"="#42B540FF","4"="#0099B4FF",
+                               "5"="#925E9FFF","6"="#FDAF91FF","7"="#AD002AFF","-1"="lightgrey"),
+                       Edu = c("1"="#00468BFF","2"="#ED0000FF","3"="#42B540FF","4"="#0099B4FF","-1"="lightgrey"),
+                       BMI = c("1"="#00468BFF","2"="#ED0000FF","-1"="lightgrey"),
+                       Income = c("1"="#00468BFF","2"="#ED0000FF","3"="#42B540FF","4"="#0099B4FF","-1"="lightgrey"),
+                       Parity = c("0"="#0099B4FF","1"="#00468BFF","2"="#ED0000FF","3"="#42B540FF","-1"="lightgrey"),
+                       Delivery.mode = c("1"="#00468BFF","2"="#ED0000FF","3"="#42B540FF","4"="#0099B4FF",
+                                         "5"="#925E9FFF","-1"="lightgrey"),
+                       Residence2 = c("1"="#00468BFF","2"="#ED0000FF","-1"="lightgrey")
+)
+
+pdf(file = "tmp.pdf", width = 15, height = 18)
+pheatmap(as.matrix(scale_test),
+         cluster_rows = F, cluster_cols = F, 
+         show_colnames = F, annotation_col = annotation, 
+         annotation_colors = annotation_col,
+         cellheight = 12, annotation_legend = F,
+         gaps_row = c(1, 2, 3 ,4, 6, 7, 13, 17, 18, 26, 35),
+         gaps_col = c(398, 3119, 5284, 5470, 5679, 5962, 6122, 6249, 6376, 6451, 6548,6606),
+         color = colorRampPalette(c("white", "#20B2AA", "#FF69B4"))(60))
+dev.off()
+
