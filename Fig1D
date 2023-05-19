@@ -8,7 +8,6 @@ library(ggplot2)
 
 otu <- read.delim("otu_use.txt", row.names = 1, sep = "\t", check.names = F, stringsAsFactors = F)
 taxnomy <- read.xlsx("taxonomy_use.xlsx", sheet = 1)
-
 #-------------------------------------------------------------------------------------
 #Calculate count abundance - observed OTU
 otu$otu <- rownames(otu)
@@ -67,3 +66,4 @@ q <- q + coord_flip()
 q <- q + theme_bw()+theme(legend.position = 'none')
 q
 ggsave(plot = q, filename = paste0("Top6_species.pdf"), width = 6, height = 8)
+
