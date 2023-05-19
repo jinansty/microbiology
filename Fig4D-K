@@ -1,0 +1,150 @@
+
+library(openxlsx)
+library(mediation)
+
+metadata <- read.delim("metadata.txt", header = T, sep = "\t", check.names = F, stringsAsFactors = F)
+rel_otu <- read.xlsx("rel_otu_species.xlsx", sheet = 1, rowNames = T)
+
+species <- read.delim("species for age network.txt", header = T, sep = "\t", check.names = F, stringsAsFactors = F)
+rel_otu.sel <- rel_otu[rownames(rel_otu) %in% species$Species,]
+rel_otu.sel <- as.data.frame(t(rel_otu.sel))
+rel_otu.sel$Samples <- rownames(rel_otu.sel)
+
+data <- merge(rel_otu.sel, metadata, by.x = "Samples", by.y = "Vid")
+#-------------------------------------------------------------------
+# mediation for continuous variable
+res <- matrix(nrow = nrow(species)*ncol(metadata), ncol = 18)
+n <- 1
+
+for (i in 1:nrow(species)) {
+  for (j in 3:(ncol(metadata))) {
+    species.sel <- species[i,1]
+    metadata.sel <- colnames(metadata)[j]
+    
+    data_sel <- data[,c("Samples", "Age", species.sel, metadata.sel)]
+    data_sel <- data_sel[!data_sel[,metadata.sel] %in% "Other",]
+    data_sel[,metadata.sel] <- as.numeric(data_sel[,metadata.sel])
+    
+    colnames(data_sel) <- c("Samples", "Age", "Abundance", "Factor")
+    #------------------------------------------------------------------
+    b <- glm(Factor ~ Age, data = data_sel)
+    c <- glm(Abundance ~ Factor + Age, data = data_sel)
+    
+    contcont <- mediate(b, c, treat = "Age", mediator = "Factor", sims = 1000, boot = T)
+    
+    tmp <- summary(contcont)
+    
+    res[n,1] <- metadata.sel
+    res[n,2] <- species.sel
+    
+    res[n,3] <- tmp$d0
+    res[n,4] <- tmp$d0.ci[1]
+    res[n,5] <- tmp$d0.ci[2]
+    res[n,6] <- tmp$d0.p
+    
+    res[n,7] <- tmp$z0
+    res[n,8] <- tmp$z0.ci[1]
+    res[n,9] <- tmp$z0.ci[2]
+    res[n,10] <- tmp$z0.p
+    
+    res[n,11] <- tmp$tau.coef
+    res[n,12] <- tmp$tau.ci[1]
+    res[n,13] <- tmp$tau.ci[2]
+    res[n,14] <- tmp$tau.p
+    
+    res[n,15] <- tmp$n0
+    res[n,16] <- tmp$n0.ci[1]
+    res[n,17] <- tmp$n0.ci[2]
+    res[n,18] <- tmp$n0.p
+    
+    pdf(paste0("Age", "-", metadata.sel, "-", species.sel, ".pdf"), width = 8, height = 6)
+    plot(contcont, main = paste0("Age", "-", metadata.sel, "-", species.sel))
+    dev.off()
+    
+    n <- n+1
+  }
+}
+write.xlsx(as.data.frame(res), file = "res1.xlsx")
+#-------------------------------------------------------------------
+# mediation for non-continuous variable
+res <- matrix(nrow = nrow(species)*ncol(metadata), ncol = 18)
+n <- 1
+
+for (i in 1:nrow(species)) {
+  for (j in 17:(ncol(metadata))) {
+    species.sel <- species[i,1]
+    metadata.sel <- colnames(metadata)[j]
+    
+    data_sel <- data[,c("Samples", "Age", species.sel, metadata.sel)]
+    data_sel <- data_sel[!data_sel[,metadata.sel] %in% "Other",]
+    data_sel[,metadata.sel] <- as.numeric(data_sel[,metadata.sel])
+    
+    colnames(data_sel) <- c("Samples", "Age", "Abundance", "Factor")
+    #------------------------------------------------------------------
+    b <- glm(Factor ~ Age, family=binomial(link="logit"), data = data_sel)
+    c <- glm(Abundance ~ Factor + Age, data = data_sel)
+    
+    contcont <- mediate(b, c, treat = "Age", mediator = "Factor", sims = 1000, boot = T)
+    
+    tmp <- summary(contcont)
+    
+    res[n,1] <- metadata.sel
+    res[n,2] <- species.sel
+    
+    res[n,3] <- tmp$d0
+    res[n,4] <- tmp$d0.ci[1]
+    res[n,5] <- tmp$d0.ci[2]
+    res[n,6] <- tmp$d0.p
+    
+    res[n,7] <- tmp$z0
+    res[n,8] <- tmp$z0.ci[1]
+    res[n,9] <- tmp$z0.ci[2]
+    res[n,10] <- tmp$z0.p
+    
+    res[n,11] <- tmp$tau.coef
+    res[n,12] <- tmp$tau.ci[1]
+    res[n,13] <- tmp$tau.ci[2]
+    res[n,14] <- tmp$tau.p
+    
+    res[n,15] <- tmp$n0
+    res[n,16] <- tmp$n0.ci[1]
+    res[n,17] <- tmp$n0.ci[2]
+    res[n,18] <- tmp$n0.p
+    
+    pdf(paste0("Age", "-", metadata.sel, "-", species.sel, ".pdf"), width = 8, height = 6)
+    plot(contcont, main = paste0("Age", "-", metadata.sel, "-", species.sel))
+    dev.off()
+    
+    n <- n+1
+  }
+}
+write.xlsx(as.data.frame(res), file = "res2.xlsx")
+#------------------------------------------------------------------
+# rbind res1.xlsx & res2.xlsx into res.xlsx
+res <- read.xlsx("res.xlsx", sheet = 1)
+
+res$`ACME.BH` <- p.adjust(res$`ACME.p-value`, method = "BH")
+res$`ADE.BH` <- p.adjust(res$`ADE.p-value`, method = "BH")
+res$`Total.Effect.BH` <- p.adjust(res$`Total.Effect.p-value`, method = "BH")
+res$`Prop.Mediated.BH` <- p.adjust(res$`Prop.Mediated.p-value`, method = "BH")
+#------------------------------------------------------------------
+mediation.sel <- read.xlsx("mediation_plot.xlsx", sheet = 2)
+
+library(ggsankey)
+library(ggplot2)
+library(dplyr)
+
+df <- mediation.sel %>% make_long(From, Variable, Species)
+
+df <- mediation.sel %>% make_long(From, Species, Factor)
+
+p <- ggplot(df, aes(x = x, next_x = next_x, node = node, 
+                    next_node = next_node, fill = factor(node), label = node)) 
+p <- p + geom_sankey(flow.alpha = 0.75, node.color = 1)
+p <- p + geom_sankey_label(size = 3.5, color = 1, fill = "white")
+p <- p + scale_fill_viridis_d(alpha = 0.95)
+p <- p + theme_sankey(base_size = 16)
+p <- p + theme(legend.position = "none")
+p
+ggsave(p, filename = "mediation.pdf", width = 7, height = 5)
+
