@@ -1,0 +1,34 @@
+
+library(logistf)
+library(forest)
+
+metadata <- read.table("metadata.txt", header = T, row.names = 1, sep="\t", stringsAsFactors =T)
+factor_name <- c("Vagitype","CP" ,"LB")
+
+idx <- which(names(metadata) %in% factor_name)
+
+for(i in idx ){metadata[,i]  <-  as.factor(metadata[,i])}
+str(metadata)
+
+metadata$Vagitype <- relevel(metadata$Vagitype , ref = "7")
+###############################################################################
+fit.firth1 <- logistf(LB ~  Age + BMI + Transfer_num+ Vagitype, data=metadata)
+summary(fit.firth1)
+
+pdf("LB.firth1.pdf", width = 8, height = 12)
+forest(fit.firth1, data = metadata,
+       plotArgs = list(show_conf = T, cex = 1.5, col.sig = c('grey70', 'green4')
+                       ,panel_size = c(2, 3, 2)
+                       ,xlim = c(0, 40)))
+dev.off()
+
+fit.firth2 <- logistf(CP ~  Age + BMI + Transfer_num + Vagitype, data=metadata)
+summary(fit.firth2)
+
+pdf("fit.firth2.pdf", width = 8, height = 12)
+forest(CP.firth, data = metadata,
+       plotArgs = list(show_conf = T, cex = 1.5, col.sig = c('grey70', 'red4')
+                       ,panel_size = c(2, 3, 2)
+                       ,xlim = c(0, 40)))
+dev.off()
+
