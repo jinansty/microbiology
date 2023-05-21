@@ -21,8 +21,7 @@ head(tsne_res)
 group$Group <- as.factor(group$Group)
 
 p <- ggplot(tsne_res, aes(tSNE1, tSNE2, color=group$Group))
-p <- p + geom_point(size = 1)
-p <- p + stat_ellipse(aes(tSNE1, tSNE2, fill=group$Group), level = 0.2, type = "t", geom = "polygon", alpha = 0.3, show.legend = NA)
+p <- p + geom_point(size = 2)
 p <- p + scale_color_manual(values = c("1"="#00468BFF","2"="#ED0000FF","3"="#42B540FF","4"="yellow",
                                  "5"="#925E9FFF","6"="#FDAF91FF","7"="#AD002AFF","8"="#E64B35FF",
                                  "9"="#D02090","10"="#0099B4FF","11"="#FF1493","12"="#FFA500",
