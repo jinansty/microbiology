@@ -35,24 +35,24 @@ plot_df$horm <- factor(plot_df$horm, levels = c("FSHb","LHb", "E2b", "FSH", "LH"
 
 ## plot 
 p <- ggplot(data = plot_df, aes(x = Age, y = mean, group = horm, color = horm)) +
-  geom_point(aes(shape = horm)) + geom_line() + geom_errorbar(aes(ymin= lower, ymax = upper), width=.2,size=0.75)  
-p <- p + scale_color_manual(values = c("FSHb"  = "#20B2AA","LHb"  = "#00468BFF", "E2b"  = "#33A02CFF",
-                                       "FSH"  = "#ED0000FF", "LH"  = "#458B74", "E2"  = "#FF7F00FF",
-                                       "P"  = "#AD002AFF", "AMH"  = "#FFD700"), name = "Hormone level",
-                            label =  c("FSHb"  = "Basal FSH","LHb"  = "Basal LH", "E2b"  = "Basal E2",
-                                       "FSH"  = "FSH", "LH"  = "LH", "E2"  = "E2", "P"  = "P", "AMH"  = "AMH")) 
-p <- p + scale_shape_manual(values = c( "FSHb"= 16, "LHb"  = 16, "E2b"  = 16,
-                                       "FSH"  = 16,   "LH"  = 17, "E2"  = 16,
-                                       "P"  = 17, "AMH"  = 16   ), name = "Hormone level",
-                            label =  c("FSHb"  = "Basal FSH","LHb"  = "Basal LH", "E2b"  = "Basal E2",
-                                       "FSH"  = "FSH", "LH"  = "LH", "E2"  = "E2", "P"  = "P", 
-                                       "AMH"  = "AMH")) 
+  geom_point(aes(shape = horm)) + geom_line() + geom_errorbar(aes(ymin = lower, ymax = upper), width=.2, size=0.75)  
+p <- p + scale_color_manual(values = c("FSHb" = "#20B2AA","LHb" = "#00468BFF", "E2b" = "#33A02CFF",
+                                       "FSH" = "#ED0000FF", "LH" = "#458B74", "E2" = "#FF7F00FF",
+                                       "P" = "#AD002AFF", "AMH" = "#FFD700"), name = "Hormone level",
+                            label =  c("FSHb" = "Basal FSH","LHb"  = "Basal LH", "E2b" = "Basal E2",
+                                       "FSH" = "FSH", "LH" = "LH", "E2"  = "E2", "P" = "P", "AMH" = "AMH")) 
+p <- p + scale_shape_manual(values = c( "FSHb"= 16, "LHb" = 16, "E2b"  = 16,
+                                       "FSH" = 16, "LH" = 17, "E2"  = 16,
+                                       "P" = 17, "AMH" = 16), name = "Hormone level",
+                            label =  c("FSHb" = "Basal FSH","LHb" = "Basal LH", "E2b" = "Basal E2",
+                                       "FSH" = "FSH", "LH" = "LH", "E2" = "E2", "P" = "P", 
+                                       "AMH" = "AMH")) 
 p <- p + ylab("log10 (Value)") + xlab("Age (years)")
 p <- p + scale_x_discrete( breaks = as.character(1:14),
                            labels = c("19-25", "26-28", "29-31", "32-34",
                                       "35-36", "37-38", "39-41", "42-43",
-                                      "44-45", "46-47", "48-49","50-51",
-                                      "52-54",">=55"))
+                                      "44-45", "46-47", "48-49", "50-51",
+                                      "52-54", ">=55"))
 p <- p + ggtitle("Female Physiological Hormone among Time Series") 
 p <- p + theme_bw() + theme(axis.text.x = element_text(angle = 30, hjust = 0.8)) 
 p
