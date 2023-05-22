@@ -1,0 +1,90 @@
+
+library(openxlsx)
+library(pheatmap)
+
+rel.otu <- read.xlsx("rel_otu_species.xlsx", sheet = 1)
+rownames(rel.otu) <- rel.otu[,1]
+rel.otu <- rel.otu[,-1]
+
+metadata <- read.xlsx("metadata.xlsx", sheet = 1)
+rownames(metadata) <- metadata$Vid
+metadata <- metadata[,-1]
+
+species.sel <- read.xlsx("Venn.xlsx", sheet = 3)
+rel.otu.sel <- rel.otu[species.sel$Species,]
+#------------------------------------------------------------
+tmp.a <- data.frame()
+n <- 1
+
+for(i in 1:ncol(metadata)){
+  metadata.tmp <- metadata[!metadata[,i] %in% "Other",]
+  rel.otu.tmp <- rel.otu.sel[,rownames(metadata.tmp)]
+
+  for (j in 1:nrow(rel.otu.tmp)) {
+    res <- kruskal.test(as.numeric(rel.otu.tmp[j,]) ~ as.factor(metadata.tmp[,i]))
+    
+    tmp.a[n,1] <- colnames(metadata)[i]
+    tmp.a[n,2] <- rownames(rel.otu.tmp)[j]
+    tmp.a[n,3] <- as.numeric(res$p.value)
+    
+    n <- n+1
+  }
+}
+
+tmp.a$BH <- p.adjust(p = tmp.a$V3, method = "BH")
+#-------------------------------------------------------------
+plot.data <- tmp.a
+plot.data$plotvalue <- -log(plot.data$BH)
+plot.data$plotvalue <- pmax(-20, pmin(20, plot.data$plotvalue))
+#-------------------------------------------------------------
+species.sel2 <- read.xlsx("Venn.xlsx", sheet = 2)
+plot.data2 <- plot.data[plot.data$V2 %in% species.sel2$Species43,]
+
+plot2 <- matrix(nrow = 26, ncol = 43)
+colnames(plot2) <- levels(as.factor(plot.data2$V2))
+rownames(plot2) <- colnames(metadata)
+plot2 <- as.data.frame(plot2)
+
+for (i in 1:ncol(plot2)) {
+  for (j in 1:nrow(plot2)) {
+    tmp2 <- plot.data2[((plot.data2$V1 %in% rownames(plot2)[j]) & (plot.data2$V2 %in% colnames(plot2)[i])),]
+    plot2[j,i] <- as.numeric(tmp2$plotvalue)
+  }
+}
+plot2[is.na(plot2)] <- 0
+
+factor_group <- read.delim(file = "variable_group.txt", header = T, sep = "\t", check.names = F, stringsAsFactors = F)
+plot2 <- plot2[factor_group$factor,]
+
+taxonomy <- read.xlsx("taxonomy_use.xlsx", sheet = 1)
+anno <- taxonomy[taxonomy$Species %in% levels(as.factor(plot.data2$V2)),]
+anno <- anno[,-1]
+anno <- anno[!duplicated(x = paste0(anno$Phylum, anno$Species)),]
+
+anno <- anno[order(anno$Phylum),]
+plot2 <- plot2[,anno$Species]
+
+pdf(file = "KW_res.pdf", width = 10, height = 8)
+pheatmap(plot2,
+         cellwidth = 10,
+         cellheight = 10,
+         fontsize = 7,
+         kmeans_k = NA,
+         border = TRUE,
+         show_rownames = TRUE,
+         show_colnames = TRUE,
+         scale = "none",
+         cluster_rows = F,
+         cluster_cols = F,
+         clustering_distance_rows = "euclidean",
+         clustering_distance_cols = "euclidean",
+         legend = TRUE,
+         border_color = "lightgrey",
+         color = colorRampPalette(c("#F5F5F5", "#20B2AA"))(80),
+         annotation_col = annotation, 
+         annotation_colors = annotation_col,
+         gaps_row = c(1,3,5,9,16,20,24),
+         gaps_col = c(10,18,38,39,42),
+         display_numbers = matrix(ifelse(plot2 > -log(0.01), "*", ""), nrow(plot2)))
+dev.off()
+
