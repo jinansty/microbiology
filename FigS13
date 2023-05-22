@@ -1,0 +1,122 @@
+
+library(igraph)
+library(dplyr)
+
+nc <- function(adj_matrix) {
+  adj_matrix <- as.matrix(adj_matrix)
+  adj_matrix[abs(adj_matrix) != 0] <- 1
+
+  lambda <- eigen(adj_matrix, only.values = TRUE)$values
+  lambda <- sort(lambda, decreasing = TRUE)
+
+  lambda_sum <- 0
+  N = length(lambda)
+  for (i in 1:N) lambda_sum = lambda_sum + exp(lambda[i])
+  lambda_average <- log(lambda_sum/N, base = exp(1))
+  lambda_average
+}
+#---------------------------------------------------------------------------
+#read the net relationship and analyse
+net <- read.xlsx("net_use.xlsx", sheet = 1)
+net <- graph.data.frame(as.matrix(net[,c(1,2)]), directed = F)
+net_adj <- get.adjacency(net, sparse=F)
+
+V(net)$betweenness_centrality <- betweenness(net)
+bc <- data.frame(betweenness(net), betweenness(net))
+colnames(bc) <- c("betweenness1", "betweenness2")
+bc <- bc[order(bc$betweenness1, decreasing = T),]
+
+adj_matrix_bc <- net_adj[rownames(bc),rownames(bc)]
+nc(adj_matrix_bc)
+
+natural_connectivity <- c()
+for (i in 1:(nrow(adj_matrix_bc)-1)) {
+
+  remove_node <- c(1:i)
+  adj_matrix2 <- adj_matrix_bc[-remove_node,-remove_node]
+
+  natural_connectivity_remove <- nc(adj_matrix2)
+  natural_connectivity <- c(natural_connectivity, natural_connectivity_remove)
+}
+
+dat_net <- data.frame(remove_node = 0:(length(natural_connectivity)-1), natural_connectivity = natural_connectivity)
+#---------------------------------------------------------------------------
+#plot the net results
+library(ggplot2)
+library(ggsci)
+library(brainGraph)
+
+color <- c("net1" = "#FF69B4", "net2" = "#20B2AA",
+           "net3" = "#00468BFF", "net4" = "#33A02CFF",
+           "net5" = "#02786A", "net6" = "#ED0000FF",
+           "net7" = "#FF00FF", "net8" = "#FF7F00FF",
+           "net9" = "#AD002AFF", "net10" = "#1F78B4FF",
+           "net11" = "#B2DF8AFF", "net12"  = "#A6CEE3FF")
+
+pic <- ggplot(data=dat, aes(x=remove_node, y=natural_connectivity, group=group)) +
+  geom_point(aes(color=group), shape = 20, size = 2) +
+  geom_smooth(aes(color=group), se=F) +
+  scale_color_manual(values=color) +
+  guides(color=guide_legend(title="Age"))+
+  scale_y_continuous(expand = c(0,0))+
+  scale_x_continuous(expand = c(0,0.5))+
+  theme_classic() +
+  theme(panel.grid=element_blank(), panel.background=element_rect(fill='transparent', color='black'))
+pic
+ggsave(plot = pic, filename = "pic.pdf", device = "pdf", width = 8, height = 6)
+#---------------------------------------------------------------------------
+a1 <- robustness(g = net1, type = "vertex", measure = "btwn.cent", N = 1000)
+a2 <- robustness(g = net2, type = "vertex", measure = "btwn.cent", N = 1000)
+a3 <- robustness(g = net3, type = "vertex", measure = "btwn.cent", N = 1000)
+a4 <- robustness(g = net4, type = "vertex", measure = "btwn.cent", N = 1000)
+a5 <- robustness(g = net5, type = "vertex", measure = "btwn.cent", N = 1000)
+a6 <- robustness(g = net6, type = "vertex", measure = "btwn.cent", N = 1000)
+a7 <- robustness(g = net7, type = "vertex", measure = "btwn.cent", N = 1000)
+a8 <- robustness(g = net8, type = "vertex", measure = "btwn.cent", N = 1000)
+a9 <- robustness(g = net9, type = "vertex", measure = "btwn.cent", N = 1000)
+a10 <- robustness(g = net10, type = "vertex", measure = "btwn.cent", N = 1000)
+a11 <- robustness(g = net11, type = "vertex", measure = "btwn.cent", N = 1000)
+a12 <- robustness(g = net12, type = "vertex", measure = "btwn.cent", N = 1000)
+
+robustness <- matrix(nrow = 12, ncol = 3)
+for (i in 1:nrow(robustness)) {
+  robustness[i,1] <- paste0("net", i)
+  #robustness[i,2] <- median(as.data.frame(get(paste0("a", i)))[,"comp.pct"])
+  robustness[i,2] <- mean(as.data.frame(get(paste0("a", i)))[,"comp.pct"])
+  robustness[i,3] <- mean(degree(get(paste0("net", i))))
+}
+
+colnames(robustness) <- c("Group", "Mean Robustness", "Mean degree")
+robustness <- as.data.frame(robustness)
+
+robustness$`Mean Robustness` <- as.numeric(robustness$`Mean Robustness`)
+robustness$`Mean degree` <- as.numeric(robustness$`Mean degree`)
+
+robustness$Group <- factor(robustness$Group, levels = robustness$Group)
+
+m <- ggplot(data=robustness, mapping=aes(x=Group, fill=Group, y = `Mean degree`))
+m <- m + geom_bar(stat="identity", width=0.5)
+m <- m + scale_fill_manual(values=color)
+m <- m + theme_minimal()
+m
+
+vulnerability(g = net1, use.parallel = TRUE, weighted = FALSE)
+#---------------------------------------------------------------------------
+library(openxlsx)
+library(reshape2)
+library(ggplot2)
+
+vulnerability <- read.xlsx("net.xlsx", sheet = 1)
+vulnerability <- melt(vulnerability)
+vulnerability$Net <- factor(x = vulnerability$Net, levels = c("net1", "net2", "net3", "net4", "net5",
+                                                          "net6", "net7", "net8", "net9", "net10",
+                                                          "net11", "net12"))
+
+p <- ggplot(vulnerability, aes(x=Net, y=value, fill=Net))
+p <- p + geom_bar(stat="identity", width = 0.6)
+p <- p + scale_fill_manual(values=color)
+p <- p + facet_wrap(~variable, nrow = 3, ncol = 1, strip.position = "left")
+p <- p + theme_bw()
+p
+ggsave(plot = p, filename = "pic2.pdf", device = "pdf", width = 8, height = 6)
+
