@@ -12,7 +12,6 @@ species_top15['Others', ] <- 1 - colSums(species_top15)
 colSums(species_top15)
 #################################################################################
 #Fig1B
-
 library(reshape2)
 library(ggplot2)
 library(forcats)
