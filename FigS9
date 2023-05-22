@@ -1,54 +1,60 @@
 
-library(ggplot2)
-library(reshape2)
-library(gg.gap)
 library(openxlsx)
+library(ggplot2)
 
-physiological_index <- read.xlsx("Age_stem.xlsx", sheet = 1)
-rownames(physiological_index) <- physiological_index[,1]
-physiological_index <- physiological_index[,-1]
-physiological_index$Agegroup <- as.factor(physiological_index$Agegroup)
-physiological_index$T <- as.numeric(physiological_index$T)
+horm <- read.xlsx("age.xlsx")
+range(horm$Age_group)
+horm$Age_group <- factor(horm$Age_group, levels = c(1:14))
 
-physiological <- matrix(nrow = nlevels(physiological_index$Agegroup), ncol = ncol(physiological_index)-1)
-
-rownames(physiological) <- levels(physiological_index$Agegroup)
-colnames(physiological) <- colnames(physiological_index)[2:15]
-physiological <- as.data.frame(physiological)
-
-for (i in 1:nrow(physiological)) {
-  for (j in 1:ncol(physiological)) {
-    tmp <- physiological_index[,c("Agegroup", colnames(physiological)[j])]
-    tmp <- tmp[!is.na(tmp[,colnames(physiological)[j]]),]
-    tmp <- tmp[tmp$Agegroup %in% rownames(physiological)[i],]
-    
-    physiological[i,j] <- mean(tmp[,colnames(physiological)[j]])
-  }
+## statistics by age group
+stat <- function(x){
+  mean = mean(x, na.rm = T)
+  median = median(x, na.rm = T)
+  sd = sd(x, na.rm = T)
+  se = sd(x, na.rm = T)/(length(na.omit(x)))^0.5
+  return(c(mean = mean, sd = sd, se = se, median = median))
 }
+sel <- colnames(horm)[4:11]
+sel
 
-physiological$Age <- rownames(physiological)
-physiological_use <- melt(physiological, id="Age")
-physiological_use$value <- log10(physiological_use$value)
+#"FSHb" "LHb"  "E2b"  "FSH"  "LH"   "E2"   "P"    "AMH" 
+stat_df <- data.frame()
+for (i in sel){
+  tmp_stat <- doBy::summaryBy(horm[i]~Age_group, horm,  FUN = stat)
+  colnames(tmp_stat) <- c("Age","mean","sd","se","median") 
+  tmp_stat$horm = i
+  stat_df <- rbind(stat_df, tmp_stat)
+}
+stat_df$lower <- stat_df$mean - stat_df$se
+stat_df$upper <- stat_df$mean + stat_df$se
 
-p <- ggplot(physiological_use, aes(x = Age, y=value, group=variable, color=variable, shape = variable)) 
-p <- p + geom_line() + geom_point()
-p <- p + scale_color_manual(values = c("BMI" = "darkred", "FSHb"  = "#20B2AA",
-                                       "LHb"  = "#00468BFF", "E2b"  = "#33A02CFF",
-                                       "Pb"  = "#925E9FFF", "FSH"  = "#ED0000FF",
-                                       "LH"  = "#458B74", "E2"  = "#FF7F00FF",
-                                       "P"  = "#AD002AFF", "PRL"  = "#1F78B4FF",
-                                       "T"  = "#FF69B4", "AMH"  = "#FFD700",
-                                       "Nugent"  = "black", "HGB"  = "#006400"))
-p <- p + scale_shape_manual(values = c("BMI" = 16, "FSHb"  = 16,
-                                       "LHb"  = 16, "E2b"  = 16,
-                                       "Pb"  = 16, "FSH"  = 16,
-                                       "LH"  = 17, "E2"  = 16,
-                                       "P"  = 17, "PRL"  = 17,
-                                       "T"  = 16, "AMH"  = 16,
-                                       "Nugent"  = 16, "HGB"  = 16))
+## data fro plot
+plot_df <- stat_df[,c("Age", "mean", "lower", "upper", "horm")]
+plot_df[,c( "mean", "lower", "upper")] <- log10( plot_df[,c( "mean", "lower", "upper")] )
+plot_df$horm <- factor(plot_df$horm, levels = c("FSHb","LHb", "E2b", "FSH", "LH", "E2", "P", "AMH"))
+
+## plot 
+p <- ggplot(data = plot_df, aes(x = Age, y = mean, group = horm, color = horm)) +
+  geom_point(aes(shape = horm)) + geom_line() + geom_errorbar(aes(ymin= lower, ymax = upper), width=.2,size=0.75)  
+p <- p + scale_color_manual(values = c("FSHb"  = "#20B2AA","LHb"  = "#00468BFF", "E2b"  = "#33A02CFF",
+                                       "FSH"  = "#ED0000FF", "LH"  = "#458B74", "E2"  = "#FF7F00FF",
+                                       "P"  = "#AD002AFF", "AMH"  = "#FFD700"), name = "Hormone level",
+                            label =  c("FSHb"  = "Basal FSH","LHb"  = "Basal LH", "E2b"  = "Basal E2",
+                                       "FSH"  = "FSH", "LH"  = "LH", "E2"  = "E2", "P"  = "P", "AMH"  = "AMH")) 
+p <- p + scale_shape_manual(values = c( "FSHb"= 16, "LHb"  = 16, "E2b"  = 16,
+                                       "FSH"  = 16,   "LH"  = 17, "E2"  = 16,
+                                       "P"  = 17, "AMH"  = 16   ), name = "Hormone level",
+                            label =  c("FSHb"  = "Basal FSH","LHb"  = "Basal LH", "E2b"  = "Basal E2",
+                                       "FSH"  = "FSH", "LH"  = "LH", "E2"  = "E2", "P"  = "P", 
+                                       "AMH"  = "AMH")) 
 p <- p + ylab("log10 (Value)") + xlab("Age (years)")
-p <- p + ggtitle("Female Physiological Index Change among Time Series")
-p <- p + theme_bw() + theme(axis.text.x = element_text(angle = 30, hjust = 0)) 
+p <- p + scale_x_discrete( breaks = as.character(1:14),
+                           labels = c("19-25", "26-28", "29-31", "32-34",
+                                      "35-36", "37-38", "39-41", "42-43",
+                                      "44-45", "46-47", "48-49","50-51",
+                                      "52-54",">=55"))
+p <- p + ggtitle("Female Physiological Hormone among Time Series") 
+p <- p + theme_bw() + theme(axis.text.x = element_text(angle = 30, hjust = 0.8)) 
 p
-ggsave(plot = p, filename = "physiological_index.pdf", device = "pdf", width = 8, height = 6)
+ggsave(plot = p, filename = "FigS9_Age_hormone.pdf", device = "pdf", width = 8, height = 6)
 
