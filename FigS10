@@ -1,0 +1,45 @@
+
+library(openxlsx)
+library(reshape2)
+library(ggplot2)
+library(scales)
+
+spearman.data <- read.xlsx("Varify_spearman.xlsx", sheet = 1)
+AUC.data <- read.xlsx("Varify_AUC.xlsx", sheet = 1, rowNames = T)
+
+spearman.data[spearman.data < 0] <- abs(spearman.data[spearman.data < 0])
+
+plot.data <- melt(spearman.data, id.vars = "Number")
+plot.data$variable <- factor(plot.data$variable, levels = c("BV","Date","Age","OT2","Parity",
+                                                            "BMI","E2.Group","FSH2","MENO","Excer",
+                                                            "Delivery.mode","Sex","T","PRO","E2b.Group",
+                                                            "HGB.group","Dou","Edu","Contra","Income",
+                                                            "LHb.Group","AMH","CSU","AMS", "Residence","VVC"))
+AUC.data <- AUC.data[,c("BV","Date","Age","OT2","Parity",
+                        "BMI","E2.Group","FSH2","MENO","Excer",
+                        "Delivery.mode","Sex","T","PRO","E2b.Group",
+                        "HGB.group","Dou","Edu","Contra","Income",
+                        "LHb.Group","AMH","CSU","AMS")]
+AUC <- data.frame(colnames(AUC.data), t(AUC.data[101,]))
+colnames(AUC) <-c("variable", "AUC")
+
+p0 <- ggplot(plot.data, aes(x=variable, y=value, fill=variable)) 
+p0 <- p0 + geom_boxplot(colour = "black", size = 0.5)
+p0 <- p0 + scale_fill_manual(values = c("BV" = "#ABB4B4","Date"= "#F3AA8E","Age"= "#8B5A96","OT2"= "#8B5A96","Parity"= "#DD1615",
+                                        "BMI"= "#06B0F2","E2.Group"= "#004382","FSH2"= "#004382","MENO"= "#8B5A96","Excer"= "#191818",
+                                        "Delivery.mode"= "#DD1615","Sex"= "#191818","T"= "#004382","PRO"= "#FCFC06","E2b.Group"= "#004382",
+                                        "HGB.group"= "#004382","Dou"= "#191818","Edu"= "#FCFC06","Contra"= "#191818","Income"= "#FCFC06",
+                                        "LHb.Group"= "#004382","AMH"= "#004382","CSU"= "#DD1615","AMS"= "#DD1615",
+                                        "Residence"="black", "VVC"="black"))
+
+p0 <- p0 + scale_x_discrete(name="")
+p0 <- p0 + scale_y_continuous(breaks=pretty_breaks(5), name = "Spearman correlation",
+                              sec.axis = sec_axis(~rescale(., c(min(AUC$AUC), max(AUC$AUC))),
+                                                  name = "AUC", breaks = pretty_breaks(10)))
+p0 <- p0 + geom_point(data = AUC, aes(x = variable, y = rescale(AUC, c(min(plot.data$value), max(plot.data$value)))), 
+                      shape=21, fill="white", size=4)
+p0 <- p0 + theme_bw()
+p0 <- p0 + theme(axis.text.x=element_text(angle=90, hjust=1, vjust=0.5))+guides(fill="none")
+p0
+ggsave(filename = "RF_boxplot.pdf", plot = p0, device = "pdf", width = 14, height = 4.5)
+
