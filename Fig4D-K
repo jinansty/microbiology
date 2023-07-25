@@ -12,8 +12,11 @@ rel_otu.sel$Samples <- rownames(rel_otu.sel)
 
 data <- merge(rel_otu.sel, metadata, by.x = "Samples", by.y = "Vid")
 #-------------------------------------------------------------------
+
 # mediation for continuous variable
-res <- matrix(nrow = nrow(species)*ncol(metadata), ncol = 18)
+
+#-------------------------------------------------------------------
+res <- matrix(nrow = nrow(species)*ncol(metadata), ncol = 19)
 n <- 1
 
 for (i in 1:nrow(species)) {
@@ -27,8 +30,8 @@ for (i in 1:nrow(species)) {
     
     colnames(data_sel) <- c("Samples", "Age", "Abundance", "Factor")
     #------------------------------------------------------------------
-    b <- glm(Factor ~ Age, data = data_sel)
-    c <- glm(Abundance ~ Factor + Age, data = data_sel)
+    b <- lm(Factor ~ Age, data = data_sel)
+    c <- lm(Abundance ~ Factor + Age, data = data_sel)
     
     contcont <- mediate(b, c, treat = "Age", mediator = "Factor", sims = 1000, boot = T)
     
@@ -60,14 +63,24 @@ for (i in 1:nrow(species)) {
     pdf(paste0("Age", "-", metadata.sel, "-", species.sel, ".pdf"), width = 8, height = 6)
     plot(contcont, main = paste0("Age", "-", metadata.sel, "-", species.sel))
     dev.off()
+
+    #sensitivity analysis
+    sens.out <- medsens(contcont, rho.by = 0.1, eps= sqrt(.Machine$double.eps), effect.type = "both", sims = 1000) #会有warning
+
+    #ACME rho
+    res[n,19] <- sens.out$err.cr.d
+    print(sens.out$err.cr.d)
     
     n <- n+1
   }
 }
 write.xlsx(as.data.frame(res), file = "res1.xlsx")
 #-------------------------------------------------------------------
+
 # mediation for non-continuous variable
-res <- matrix(nrow = nrow(species)*ncol(metadata), ncol = 18)
+
+#-------------------------------------------------------------------
+res <- matrix(nrow = nrow(species)*ncol(metadata), ncol = 19)
 n <- 1
 
 for (i in 1:nrow(species)) {
@@ -81,8 +94,8 @@ for (i in 1:nrow(species)) {
     
     colnames(data_sel) <- c("Samples", "Age", "Abundance", "Factor")
     #------------------------------------------------------------------
-    b <- glm(Factor ~ Age, family=binomial(link="logit"), data = data_sel)
-    c <- glm(Abundance ~ Factor + Age, data = data_sel)
+    b <- lm(Factor ~ Age, family=binomial(link="logit"), data = data_sel)
+    c <- lm(Abundance ~ Factor + Age, data = data_sel)
     
     contcont <- mediate(b, c, treat = "Age", mediator = "Factor", sims = 1000, boot = T)
     
@@ -114,6 +127,13 @@ for (i in 1:nrow(species)) {
     pdf(paste0("Age", "-", metadata.sel, "-", species.sel, ".pdf"), width = 8, height = 6)
     plot(contcont, main = paste0("Age", "-", metadata.sel, "-", species.sel))
     dev.off()
+
+    #sensitivity analysis
+    sens.out <- medsens(contcont, rho.by = 0.1, eps= sqrt(.Machine$double.eps), effect.type = "both", sims = 1000) #会有warning
+
+    #ACME rho
+    res[n,19] <- sens.out$err.cr.d
+    print(sens.out$err.cr.d)
     
     n <- n+1
   }
