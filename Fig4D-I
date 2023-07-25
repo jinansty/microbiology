@@ -34,7 +34,6 @@ for (i in 1:nrow(species)) {
     c <- lm(Abundance ~ Factor + Age, data = data_sel)
     
     contcont <- mediate(b, c, treat = "Age", mediator = "Factor", sims = 1000, boot = T)
-    
     tmp <- summary(contcont)
     
     res[n,1] <- metadata.sel
@@ -98,7 +97,6 @@ for (i in 1:nrow(species)) {
     c <- lm(Abundance ~ Factor + Age, data = data_sel)
     
     contcont <- mediate(b, c, treat = "Age", mediator = "Factor", sims = 1000, boot = T)
-    
     tmp <- summary(contcont)
     
     res[n,1] <- metadata.sel
