@@ -64,7 +64,7 @@ for (i in 1:nrow(species)) {
     dev.off()
 
     #sensitivity analysis
-    sens.out <- medsens(contcont, rho.by = 0.1, eps= sqrt(.Machine$double.eps), effect.type = "both", sims = 1000) #会有warning
+    sens.out <- medsens(contcont, rho.by = 0.1, eps= sqrt(.Machine$double.eps), effect.type = "both", sims = 1000)
 
     #ACME rho
     res[n,19] <- sens.out$err.cr.d
@@ -127,7 +127,7 @@ for (i in 1:nrow(species)) {
     dev.off()
 
     #sensitivity analysis
-    sens.out <- medsens(contcont, rho.by = 0.1, eps= sqrt(.Machine$double.eps), effect.type = "both", sims = 1000) #会有warning
+    sens.out <- medsens(contcont, rho.by = 0.1, eps= sqrt(.Machine$double.eps), effect.type = "both", sims = 1000)
 
     #ACME rho
     res[n,19] <- sens.out$err.cr.d
