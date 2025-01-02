@@ -1,0 +1,175 @@
+
+library(ggplot2)
+library(dplyr)
+library(ggbreak)
+library(openxlsx)
+
+my_theme2 <- theme_bw() + theme(axis.text.x = element_text(hjust = 0.5, size = 12, color = "black"),
+                                axis.text.y = element_text(hjust = 0.5, size = 12, color = "black"),
+                                axis.title = element_text(size = 14, color = "black"),
+                                plot.title = element_text(size = 26, color = "black"),
+                                axis.ticks = element_line(linewidth = 0.2, color="black"),
+                                axis.ticks.length = unit(0.2, "cm"),
+                                strip.text = element_text(size = 20),
+                                panel.grid.major = element_blank(), 
+                                panel.grid.minor = element_blank())
+#--------------------------------------------------------------------------------------
+adonis_result <- read.xlsx("adonis2/bray-curtis/adonis2_bray_curtis_result.xlsx", sheet = 1)
+Variable_Sig <- read.xlsx("Variable_Sig.xlsx", sheet = 1)
+
+adonis_result.sel <- adonis_result[adonis_result$Variable %in% Variable_Sig[,1],]
+Variable_group <- read.xlsx("metadata.new.xlsx", sheet = 2)
+adonis_result.sel <- merge(adonis_result.sel, Variable_group, by.x = "Variable", by.y = "Final_var")
+adonis_result.sel <- adonis_result.sel[adonis_result.sel$R2 > 0.001,]
+
+adonis_result.sel <- adonis_result.sel[order(adonis_result.sel$R2),]
+
+p <- ggplot(adonis_result.sel, aes(x = R2, y = factor(Variable, levels = Variable, labels = Name), fill  = as.factor(Category)))
+p <- p + geom_bar(stat="identity", width = 0.7)
+p <- p + geom_text(aes(label = ifelse(fdr < 0.01, "**", "*")), vjust = 0.6, colour = "black", position = position_dodge(1), size = 4)
+p <- p + scale_x_continuous(expand = c(0,0))
+p <- p + scale_x_break(breaks = c(0.022, 0.05), space = 0.1, scales = 0.3, expand = c(0,0))
+p <- p + scale_fill_manual(values = c("Laboratory measures" = "#49B1DD", "OB-GYN related" = "#E98DAF", "Lifestyle" = "#E9CF91", "Social factors" = "#95C6C6", 
+                                     "Vaginal dysbiosis" = "#FEB705", "Female physiology" = "#E73F74", "Environment" = "#7F3C8D", "Anthropometrics" = "#008695"))
+p <- p + my_theme2
+p
+ggsave(filename = "metadata_sig.pdf", plot = p, device = "pdf", width = 6, height = 7, dpi = 300)
+#--------------------------------------------------------------------------------------
+
+#Explained variation
+
+#--------------------------------------------------------------------------------------
+library(openxlsx)
+library(vegan)
+
+Variable_Sig <- read.xlsx("Variable_Sig.xlsx", sheet = 1)
+metadata.catgory <- read.xlsx("metadata.new.xlsx", sheet = 2)
+
+Variable_Sig <- merge(Variable_Sig, metadata.catgory, by.x = "Variable_Sig", by.y = "Final_var")
+
+metadata.new <- read.xlsx("metadata.new.xlsx", sheet = 1)
+#---------------------------------------------------------------------------
+Variable_Sig$Variable_Sig[Variable_Sig$Category %in% "Anthropometrics"]
+Variable_Sig$Variable_Sig[Variable_Sig$Category %in% "Environment"]
+Variable_Sig$Variable_Sig[Variable_Sig$Category %in% "Female physiology"]
+Variable_Sig$Variable_Sig[Variable_Sig$Category %in% "Laboratory measures"]
+Variable_Sig$Variable_Sig[Variable_Sig$Category %in% "Lifestyle"]
+Variable_Sig$Variable_Sig[Variable_Sig$Category %in% "OB-GYN related"]
+Variable_Sig$Variable_Sig[Variable_Sig$Category %in% "Social factors"]
+Variable_Sig$Variable_Sig[Variable_Sig$Category %in% "Vaginal dysbiosis"]
+#---------------------------------------------------------------------------
+dist_matrix <- read.delim("beta_res/bray_curtis.sorted.txt", header = T, sep = "\t", check.names = F, stringsAsFactors = F, row.names = 1)
+
+metadata.use <- metadata.new[metadata.new$Samples %in% rownames(dist_matrix), c("Samples", Variable_Sig$Variable_Sig)]
+rownames(metadata.use) <- metadata.use$Samples
+metadata.use <- metadata.use[,-1]
+metadata.use <- metadata.use[match(rownames(dist_matrix), rownames(metadata.use)),]
+all.equal(rownames(metadata.use), rownames(dist_matrix))
+#---------------------------------------------------------------------------
+#Anthropometrics
+metadata.use.sel <- metadata.use[!metadata.use[,"BMI"] %in% "Other",]
+metadata.use.sel[,"BMI"] <- as.factor(metadata.use.sel[,"BMI"])
+
+dist_matrix_use <- as.dist(dist_matrix[rownames(metadata.use.sel), rownames(metadata.use.sel)])
+adonis_result <- adonis2(dist_matrix_use ~ BMI, data = metadata.use.sel, permutations = 1000, parallel = 8, by = NULL)
+print(adonis_result)
+#---------------------------------------------------------------------------
+#Environment
+metadata.use.sel <- metadata.use[(!metadata.use[,"Date"] %in% "Other") & (!metadata.use[,"OT2"] %in% "Other"),]
+metadata.use.sel[,"Date"] <- as.factor(metadata.use.sel[,"Date"])
+metadata.use.sel[,"OT2"] <- as.factor(metadata.use.sel[,"OT2"])
+
+dist_matrix_use <- as.dist(dist_matrix[rownames(metadata.use.sel), rownames(metadata.use.sel)])
+adonis_result <- adonis2(dist_matrix_use ~ Date + OT2, data = metadata.use.sel, permutations = 1000, parallel = 8, by = NULL)
+print(adonis_result)
+#---------------------------------------------------------------------------
+#Female physiology
+metadata.use.sel <- metadata.use[(!metadata.use[,"Age"] %in% "Other") & (!metadata.use[,"MENO"] %in% "Other"),]
+metadata.use.sel[,"Age"] <- as.factor(metadata.use.sel[,"Age"])
+metadata.use.sel[,"MENO"] <- as.factor(metadata.use.sel[,"MENO"])
+
+dist_matrix_use <- as.dist(dist_matrix[rownames(metadata.use.sel), rownames(metadata.use.sel)])
+adonis_result <- adonis2(dist_matrix_use ~ Age + MENO, data = metadata.use.sel, permutations = 1000, parallel = 8, by = NULL)
+print(adonis_result)
+#---------------------------------------------------------------------------
+#Vaginal dysbiosis
+metadata.use.sel <- metadata.use[(!metadata.use[,"BV"] %in% "Other") & (!metadata.use[,"VVC"] %in% "Other"),]
+metadata.use.sel[,"BV"] <- as.factor(metadata.use.sel[,"BV"])
+metadata.use.sel[,"VVC"] <- as.factor(metadata.use.sel[,"VVC"])
+
+dist_matrix_use <- as.dist(dist_matrix[rownames(metadata.use.sel), rownames(metadata.use.sel)])
+adonis_result <- adonis2(dist_matrix_use ~ BV + VVC, data = metadata.use.sel, permutations = 1000, parallel = 8, by = NULL)
+print(adonis_result)
+#---------------------------------------------------------------------------
+#Lifestyle
+metadata.use.sel <- metadata.use[(!metadata.use[,"Contra"] %in% "Other") & (!metadata.use[,"Dou"] %in% "Other") & (!metadata.use[,"Excer"] %in% "Other") & (!metadata.use[,"Sex"] %in% "Other"),]
+metadata.use.sel[,"Contra"] <- as.factor(metadata.use.sel[,"Contra"])
+metadata.use.sel[,"Dou"] <- as.factor(metadata.use.sel[,"Dou"])
+metadata.use.sel[,"Excer"] <- as.factor(metadata.use.sel[,"Excer"])
+metadata.use.sel[,"Sex"] <- as.factor(metadata.use.sel[,"Sex"])
+
+dist_matrix_use <- as.dist(dist_matrix[rownames(metadata.use.sel), rownames(metadata.use.sel)])
+adonis_result <- adonis2(dist_matrix_use ~ Contra + Dou + Excer + Sex, data = metadata.use.sel, permutations = 1000, parallel = 8, by = NULL)
+print(adonis_result)
+#---------------------------------------------------------------------------
+#OB-GYN related
+metadata.use.sel <- metadata.use[(!metadata.use[,"CSU"] %in% "Other") & (!metadata.use[,"Delivery.mode"] %in% "Other") & (!metadata.use[,"Parity"] %in% "Other"),]
+metadata.use.sel[,"CSU"] <- as.factor(metadata.use.sel[,"CSU"])
+metadata.use.sel[,"Delivery.mode"] <- as.factor(metadata.use.sel[,"Delivery.mode"])
+metadata.use.sel[,"Parity"] <- as.factor(metadata.use.sel[,"Parity"])
+
+dist_matrix_use <- as.dist(dist_matrix[rownames(metadata.use.sel), rownames(metadata.use.sel)])
+adonis_result <- adonis2(dist_matrix_use ~ CSU + Delivery.mode + Parity, data = metadata.use.sel, permutations = 1000, parallel = 8, by = NULL)
+print(adonis_result)
+#---------------------------------------------------------------------------
+#Social factors
+metadata.use.sel <- metadata.use[(!metadata.use[,"Edu"] %in% "Other") & (!metadata.use[,"Income"] %in% "Other") & (!metadata.use[,"PRO"] %in% "Other") & (!metadata.use[,"Residence"] %in% "Other"),]
+metadata.use.sel[,"Edu"] <- as.factor(metadata.use.sel[,"Edu"])
+metadata.use.sel[,"Income"] <- as.factor(metadata.use.sel[,"Income"])
+metadata.use.sel[,"PRO"] <- as.factor(metadata.use.sel[,"PRO"])
+metadata.use.sel[,"Residence"] <- as.factor(metadata.use.sel[,"Residence"])
+
+dist_matrix_use <- as.dist(dist_matrix[rownames(metadata.use.sel), rownames(metadata.use.sel)])
+adonis_result <- adonis2(dist_matrix_use ~ Edu + Income + PRO + Residence, data = metadata.use.sel, permutations = 1000, parallel = 8, by = NULL)
+print(adonis_result)
+#---------------------------------------------------------------------------
+#Laboratory measures
+metadata.use.sel <- metadata.use#[(!metadata.use[,"AMH"] %in% "Other") & (!metadata.use[,"E2.Group"] %in% "Other") & (!metadata.use[,"FSH2"] %in% "Other") & (!metadata.use[,"LHb.Group"] %in% "Other") & (!metadata.use[,"HGB.group"] %in% "Other") & (!metadata.use[,"NEU.abs.group"] %in% "Other"),]
+metadata.use.sel[,"AMH"] <- as.factor(metadata.use.sel[,"AMH"])
+metadata.use.sel[,"E2.Group"] <- as.factor(metadata.use.sel[,"E2.Group"])
+metadata.use.sel[,"FSH2"] <- as.factor(metadata.use.sel[,"FSH2"])
+metadata.use.sel[,"HGB.group"] <- as.factor(metadata.use.sel[,"HGB.group"])
+metadata.use.sel[,"LHb.Group"] <- as.factor(metadata.use.sel[,"LHb.Group"])
+metadata.use.sel[,"NEU.abs.group"] <- as.factor(metadata.use.sel[,"NEU.abs.group"])
+
+dist_matrix_use <- as.dist(dist_matrix[rownames(metadata.use.sel), rownames(metadata.use.sel)])
+adonis_result <- adonis2(dist_matrix_use ~ AMH + E2.Group + FSH2 + HGB.group + LHb.Group + NEU.abs.group, data = metadata.use.sel, permutations = 1000, parallel = 8, by = NULL)
+print(adonis_result)
+###################################################################################
+Explained_variation_res <- read.xlsx("Explained_variation.xlsx", sheet = 1)
+
+library(ggplot2)
+library(dplyr)
+library(ggbreak)
+library(openxlsx)
+
+my_theme2 <- theme_bw() + theme(axis.text.x = element_text(hjust = 0.5, size = 16, color = "black"),
+                                axis.text.y = element_text(hjust = 0.5, size = 16, color = "black"),
+                                axis.title = element_text(size = 18, color = "black"),
+                                plot.title = element_text(size = 22, color = "black"),
+                                axis.ticks = element_line(linewidth = 0.2, color="black"),
+                                axis.ticks.length = unit(0.2, "cm"),
+                                strip.text = element_text(size = 20),
+                                panel.grid.major = element_blank(), 
+                                panel.grid.minor = element_blank())
+
+p <- ggplot(Explained_variation_res, aes(x = R2, y = factor(Factor, levels = rev(Factor)), fill = factor(Factor)))
+p <- p + geom_bar(stat="identity", width = 0.7)
+p <- p + scale_x_continuous(expand = c(0,0))
+#p <- p + scale_x_break(breaks = c(0.022, 0.05), space = 0.1, scales = 0.3, expand = c(0,0))
+p <- p + scale_fill_manual(values = c("Laboratory measures" = "#49B1DD", "OB-GYN related" = "#E98DAF", "Lifestyle" = "#E9CF91", "Social factors" = "#95C6C6", 
+                                      "Vaginal dysbiosis" = "#FEB705", "Female physiology" = "#E73F74", "Environment" = "#7F3C8D", "Anthropometrics" = "#008695"))
+p <- p + my_theme2
+p
+ggsave(filename = "Explained_variation.pdf", plot = p, device = "pdf", width = 6, height = 4, dpi = 300)
+
