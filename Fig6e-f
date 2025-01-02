@@ -1,0 +1,43 @@
+
+library(openxlsx)
+
+my_theme2 <- theme_bw() + theme(axis.text.x = element_text(hjust = 0.5, size = 12, color = "black"),
+                                axis.text.y = element_text(hjust = 0.5, size = 12, color = "black"),
+                                axis.title = element_text(size = 12, color = "black"),
+                                plot.title = element_text(size = 16, color = "black"),
+                                axis.ticks = element_line(linewidth = 0.2, color="black"),
+                                axis.ticks.length = unit(0.2, "cm"),
+                                strip.text = element_text(size = 12),
+                                panel.grid.major = element_blank(), 
+                                panel.grid.minor = element_blank())
+
+metadata <- read.xlsx("clinical.xlsx", sheet = 1)
+vagitype <- read.xlsx("Vagitype.xlsx", sheet = 1)
+
+metadata <- merge(metadata, vagitype[,c("Sample", "group_use2")], by.x = "Vid_2", by.y = "Sample")
+
+metadata$Vagitype <- factor(metadata$Vagitype, levels = c("I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII"))
+metadata$CP <- factor(metadata$CP, levels = c("0", "1"))
+metadata$LB <- factor(metadata$LB, levels = c("0", "1"))
+
+str(metadata)
+metadata$Vagitype <- relevel(metadata$Vagitype , ref = "VII")
+#####################################################################################
+library(logistf)
+library(forest)
+
+fit.firth1 <- logistf(LB ~  Age + BMI + Transfer_num + Vagitype, data = metadata)
+summary(fit.firth1)
+
+pdf("fit.firth1.pdf", width = 8, height = 12)
+forest(fit.firth1, data = metadata,
+       plotArgs = list(show_conf = T, cex = 1.5, col.sig = c('grey70', '#219EBC'), panel_size = c(2, 3, 2), xlim = c(0, 40)))
+dev.off()
+#---------------------------------------------------------------------------------
+fit.firth2 <- logistf(CP ~  Age + BMI + Transfer_num + Vagitype, data=metadata)
+summary(fit.firth2)
+
+pdf("fit.firth2.pdf", width = 8, height = 12)
+forest(fit.firth2, data = metadata,
+       plotArgs = list(show_conf = T, cex = 1.5, col.sig = c('grey70', '#E98DAF'), panel_size = c(2, 3, 2), xlim = c(0, 20)))
+dev.off()
