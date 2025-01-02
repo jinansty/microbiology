@@ -1,0 +1,99 @@
+
+
+library(openxlsx)
+
+species.sel <- read.xlsx("Age_maaslin_top16.xlsx", sheet = 1)
+
+species.rel <- read.xlsx("Species_rel.xlsx", sheet = 1, rowNames = T)
+species.rel.sel <- species.rel[species.sel$Species,]
+species.rel.sel <- as.data.frame(t(species.rel.sel))
+
+metadata.age <- read.xlsx("Age_group.xlsx", sheet = 1)
+metadata.age <- metadata.age[match(rownames(species.rel.sel), metadata.age$Vid),]
+#------------------------------------------------------------------------------
+library(linkET)
+library(ggplot2)
+
+c <- species.rel.sel
+s <- metadata.age[,c("Vid", "Agegroup")]
+
+c$Samples <- rownames(c)
+tmp <- merge(c, s, by.x = "Samples", by.y = "Vid")
+
+c <- as.data.frame(tmp[,2:(ncol(tmp)-1)])
+s <- as.data.frame(tmp[,ncol(tmp)])
+colnames(s) <- "age"
+s$age2 <- s$age
+
+df <- fortify_cor(x=s, y=c, cor.test = T, Method="spearman")
+df <- df[df$.row.names %in% "age",]
+
+df <- df %>% 
+  mutate(r_value = cut(abs(r), breaks = c(-Inf, 0.04, 0.08, Inf), 
+                       labels = c('<0.04', '0.04-0.08', '>=0.08'), right = FALSE),
+         Relationship = cut(r, breaks = c(-Inf, 0, Inf), 
+                            labels = c('negative', 'positive'), right = FALSE)) 
+#------------------------------------------
+p1 <- qcorrplot(correlate(c, method = "pearson", adjust = TRUE, adjust_method = "fdr"), type = "lower", diag = T) + geom_square()
+p1 <- p1 + geom_mark(sep = '\n', size = 4,
+                     sig_level = c(0.05, 0.01, 0.001),
+                     sig_thres = 0.05) 
+p1 <- p1 + geom_couple(aes(color = Relationship, size = r_value), data = df, curvature = nice_curvature())
+p1 <- p1 + scale_color_manual(values = c("negative" = "#828282", "positive" = "#FFD700"))
+p1 <- p1 + scale_size_manual(values = c(0.25, 1, 2))
+p1
+#------------------------------------------
+p2 <- p1 + scale_fill_gradient2(midpoint = 0, low = "#219EBC", mid = "white", high = "#E73F74", space = "Lab") 
+p2
+#------------------------------------------
+p3 <- p2 + guides(size = guide_legend(title = "Spearman's r",
+                                      override.aes = list(colour = "grey35"), 
+                                      order = 2),
+                  colour = guide_legend(title = "Relationship", 
+                                        override.aes = list(size = 0.5), 
+                                        order = 1),
+                  fill = guide_colorbar(title = "Pearson's r", order = 2))
+p3
+ggsave(plot = p3, filename = "age.pdf", device = "pdf", width = 10, height = 10)
+#------------------------------------------------------------------------------
+library(ComplexHeatmap)
+
+my_theme2 <- theme_bw() + theme(axis.text.x = element_text(hjust = 0.5, size = 12, color = "black"),
+                                axis.text.y = element_text(hjust = 0.5, size = 12, color = "black"),
+                                axis.title = element_text(size = 12, color = "black"),
+                                plot.title = element_text(size = 16, color = "black"),
+                                axis.ticks = element_line(linewidth = 0.2, color="black"),
+                                axis.ticks.length = unit(0.2, "cm"),
+                                strip.text = element_text(size = 12),
+                                panel.grid.major = element_blank(), 
+                                panel.grid.minor = element_blank())
+
+data.handle <- read.xlsx("Species_rel.xlsx", sheet = 1, rowNames = T)
+data.handle.sel <- data.handle[rev(species.sel$Species),]
+
+age.group <- read.xlsx("Age_group.xlsx", sheet = 1)
+data.handle.sel <- as.data.frame(t(data.handle.sel))
+data.handle.sel$Group <- rownames(data.handle.sel)
+data.handle.sel <- merge(data.handle.sel, age.group[,c(1,4)], by.x = "Group", by.y = "Vid")
+data.handle.sel <- data.handle.sel[,-1]
+data.handle.sel <- aggregate(data.handle.sel[,-ncol(data.handle.sel)], by = list(data.handle.sel[,ncol(data.handle.sel)]), FUN = mean)
+rownames(data.handle.sel) <- data.handle.sel$Group.1
+data.handle.sel <- data.handle.sel[,-1]
+data.handle.sel <- as.data.frame(t(data.handle.sel))
+
+data.handle.sel <- cinaR::scale_rows(data.handle.sel)
+data.handle.sel$Species <- rownames(data.handle.sel)
+
+data.handle.plot <- reshape2::melt(data.handle.sel)
+
+colnames(data.handle.plot) <- c("species","sample","value")
+
+data.handle.plot$species <- factor(data.handle.plot$species, levels = rev(rownames(data.handle.sel)))
+
+p <- ggplot(data.handle.plot, aes(x = sample, y = species, size = value, color = value)) 
+p <- p + geom_point()
+p <- p + scale_color_gradientn(colours = c("#49B1DD", "#79C0D1","lightgrey", "#E98DAF", "#E73F74"))
+p <- p + scale_size(range = c(9, 9))
+p <- p + my_theme2
+p
+ggsave(plot = p, filename = "bubble_heatmap.pdf", device = "pdf", width = 4.5, height = 8)
