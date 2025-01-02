@@ -1,0 +1,70 @@
+
+library(openxlsx)
+library(ggplot2)
+
+alpha <- read.delim("alpha_ASV_10k.txt", header = T, row.names = 1, sep = "\t", check.names = F, stringsAsFactors = F)
+metadata.71 <- read.delim("metadata_for_alpha.txt", header = T, row.names = 1, sep = "\t", check.names = F, stringsAsFactors = F)
+
+sample_use <- intersect(rownames(alpha), rownames(metadata.71))
+
+metadata.71 <- metadata.71[sample_use,]
+
+all.equal(rownames(metadata.71), rownames(alpha))
+
+res <- data.frame()
+n <- 1
+for (i in 1:ncol(alpha)) {
+  for (j in 1:ncol(metadata.71)) {
+    
+    res[n,1] <- colnames(alpha)[i]
+    res[n,2] <-colnames(metadata.71)[j]
+    
+    tmp <- cbind(alpha[,i], metadata.71[,j])
+    tmp <- as.data.frame(tmp)
+    tmp <- tmp[!tmp[,2] %in% "Other",]
+    
+    tmp2 <- cor.test(x = as.numeric(tmp[,1]), y = as.numeric(as.factor(tmp[,2])), method = "spearman")
+    
+    res[n,3] <- tmp2$estimate
+    res[n,4] <- tmp2$p.value
+    
+    n <- n+1
+  }
+}
+res <- na.omit(res)
+write.xlsx(x = as.data.frame(res), file = "spearman_res.xlsx")
+#---------------------------------------------------------------------------------------------
+res$rho <- as.numeric(res$rho)
+res$p.value <- as.numeric(res$p.value)
+
+res_chao1 <- res[res$alpha %in% "chao1",]
+res_richness <- res[res$alpha %in% "richness",]
+res_shannon <- res[res$alpha %in% "shannon_e",]
+res_simpson <- res[res$alpha %in% "simpson",]
+
+res_chao1$fdr <- p.adjust(res_chao1$p.value, method = "fdr")
+write.xlsx(x = as.data.frame(res_chao1), file = "spearman_res_chao1.xlsx", asTable = T, overwrite = T)
+
+res_richness$fdr <- p.adjust(res_richness$p.value, method = "fdr")
+write.xlsx(x = as.data.frame(res_richness), file = "spearman_res_richness.xlsx", asTable = T, overwrite = T)
+
+res_shannon$fdr <- p.adjust(res_shannon$p.value, method = "fdr")
+write.xlsx(x = as.data.frame(res_shannon), file = "spearman_res_shannon.xlsx", asTable = T, overwrite = T)
+
+res_simpson$fdr <- p.adjust(res_simpson$p.value, method = "fdr")
+write.xlsx(x = as.data.frame(res_simpson), file = "spearman_res_simpson.xlsx", asTable = T, overwrite = T)
+#---------------------------------------------------------------------------------------------
+library(ggvenn)
+
+venn_list <- list("chao1" = res_chao1$Factor[res_chao1$fdr < 0.05], 
+                  "richness" = res_richness$Factor[res_richness$fdr < 0.05],
+                  "shannon_e" = res_shannon$Factor[res_shannon$fdr < 0.05],
+                  "simpson" = res_simpson$Factor[res_simpson$fdr < 0.05])
+p <- ggvenn(data = venn_list,
+            columns = c("chao1", "richness", "shannon_e", "simpson"),
+            show_percentage = T, stroke_color = "white", 
+            fill_color = c("#E98DAFCC", "#E9CF91CC", "#49B1DDCC", "#95C6C6CC"),
+            set_name_color = c("#E98DAF", "#E9CF91", "#49B1DD", "#95C6C6"),
+            set_name_size = 6)
+p
+ggsave(plot = p, filename = "Venn.pdf", dpi = 300, width = 6, height = 6)
