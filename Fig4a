@@ -1,0 +1,80 @@
+
+library(openxlsx)
+
+data <- read.xlsx("Species_rel.xlsx", sheet = 1, rowNames = T)
+age.group <- read.xlsx("Age_group.xlsx", sheet = 1)
+#-------------------------------------------------------------------
+age.species <- read.delim("significant_results.tsv", header = T, sep = "\t", check.names = F, stringsAsFactors = F)
+age.species <- age.species[age.species$qval < 0.05,]
+age.species <- age.species[!age.species$feature %in% "Other",]
+unique(age.species$feature)
+#-------------------------------------------------------------------
+species_40 <- data[unique(age.species$feature),]
+species_40 <- as.data.frame(t(species_40))
+
+species_40$Vid <- rownames(species_40)
+species_40 <- merge(species_40, age.group[,c("Vid", "Age_merge")], by.x = "Vid", by.y = "Vid")
+colnames(species_40)[ncol(species_40)] <- "time"
+
+rownames(species_40) <- species_40$Vid
+species_40 <- species_40[,-1]
+#-------------------------------------------------------------------
+data_handle <- aggregate(x = species_40[,-ncol(species_40)], by = list(species_40[,ncol(species_40)]), FUN = mean)
+rownames(data_handle) <- data_handle$Group.1
+data_handle <- data_handle[,-1]
+
+data_handle <- as.data.frame(t(data_handle))
+#colnames(data_handle) <- c("19-25","26-28","29-31","32-34","35-36", "37-38","39-41","42-43","44-45","46-48", "49-50", "51-")
+write.xlsx(data_handle, file = "data_handle.xlsx", rowNames = T, overwrite = T)
+#-------------------------------------------------------------------
+library(ggalluvial)
+library(reshape2)
+library(ggplot2)
+
+my_theme2 <- theme_bw() + theme(axis.text.x = element_text(hjust = 0.5, size = 16, color = "black"),
+                                axis.text.y = element_text(hjust = 0.5, size = 16, color = "black"),
+                                axis.title = element_text(size = 18, color = "black"),
+                                plot.title = element_text(size = 22, color = "black"),
+                                axis.ticks = element_line(linewidth = 0.2, color="black"),
+                                axis.ticks.length = unit(0.2, "cm"),
+                                strip.text = element_text(size = 20),
+                                panel.grid.major = element_blank(), 
+                                panel.grid.minor = element_blank())
+
+species_sel <- read.xlsx("Age_maaslin_top16.xlsx", sheet = 1)
+data_sel <- data_handle[rownames(data_handle) %in% species_sel$Species,]
+data_sel$species <- rownames(data_sel)
+
+melt_df <- melt(data_sel, id.vars = "species")
+
+p <- ggplot(data = melt_df, aes(x = variable, y = value, alluvium = species)) 
+p <- p + geom_alluvium(aes(fill = species), alpha = 0.75, decreasing = FALSE)
+p <- p + scale_fill_manual(values = c("Lactobacillus_crispatus" = "#E98DAF", "Lactobacillus_iners" = "#49B1DD",
+                                      "Gardnerella_vaginalis" = "#FFED6F", "Fannyhessea_vaginae" = "#79C0D1",
+                                      "Prevotella_timonensis" = "#00F5FF", "Streptococcus_anginosus" = "#AD002A",
+                                      "Prevotella_bivia" = "#0E606B", "Megasphaera" = "#FEB705", 
+                                      "Sneathia_amnii" = "#E73F74", "Prevotella_amnii" = "#E15759",
+                                      "Dialister_micraerophilus" = "#7F3C8D", "Aerococcus_christensenii" = "yellow",
+                                      "Prevotella_colorans"  = "#E9CF91", "Porphyromonas_uenonis" = "#A5AA99", 
+                                      "Dietzia" = "#BEBADA", "Sneathia_sanguinegens" = "black"))
+p <- p + ylim(c(0,1))
+p <- p + ggtitle("Species Change among Time Series")
+p <- p + my_theme2
+p
+ggsave(plot = p, filename = "species_sel.pdf", device = "pdf", width = 14, height = 7.5)
+#----------------------------------------------------------------------
+alpha <- read.delim("alpha_ASV_10k.txt", sep = "\t", header = T, check.names = F, stringsAsFactors = F)
+
+alpha_use <- merge(alpha[,c("Sample", "shannon_e")], age.group, by.x = "Sample", by.y = "Vid")
+rownames(alpha_use) <- alpha_use[,1]
+alpha_use <- alpha_use[,-1]
+
+alpha_use <- aggregate(alpha_use[,-3], by = list(alpha_use[,3]), FUN = mean)
+
+a <- ggplot(alpha_use, aes(x = Group.1, y = shannon_e - 0.7, fill = shannon_e, group = 1))
+a <- a + geom_col() + geom_point() + geom_line(linewidth = 0.25)
+a <- a + scale_fill_gradientn(colours = c("#49B1DD", "#79C0D1","#E9CF91", "#E98DAF", "#E73F74"))
+a <- a + geom_hline(yintercept = mean(alpha$shannon_e))
+a <- a + my_theme2
+a
+ggsave(a, filename = paste0("alpha.pdf"), width = 14, height = 2)
