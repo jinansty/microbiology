@@ -1,0 +1,73 @@
+
+library(openxlsx)
+library(ggplot2)
+library(ggalluvial)
+library(ggh4x)
+library(GGally, quietly = TRUE)
+library(dplyr)
+
+my_theme2 <- theme_bw() + theme(axis.text.x = element_text(hjust = 0.5, size = 12, color = "black"),
+                                axis.text.y = element_text(hjust = 0.5, size = 12, color = "black"),
+                                axis.title = element_text(size = 12, color = "black"),
+                                plot.title = element_text(size = 16, color = "black"),
+                                axis.ticks = element_line(linewidth = 0.2, color="black"),
+                                axis.ticks.length = unit(0.2, "cm"),
+                                strip.text = element_text(size = 12),
+                                panel.grid.major = element_blank(), 
+                                panel.grid.minor = element_blank())
+
+age.group <- read.xlsx("Age_group.xlsx", sheet = 1)
+
+vagitype <- read.xlsx("Vagitype.xlsx", sheet = 1)
+
+vagitype_age <- merge(vagitype, age.group, by.x = "Sample", by.y = "Vid")
+vagitype_age$group_use <- factor(vagitype_age$group_use, c("I-I", "I-II", "II-I", "II-II", "III", "IV", "V", "VI", 
+                                                           "VII", "VIII", "IX", "X", "XI", "XII", "XIII"))
+vagitype_age$group_use2 <- factor(vagitype_age$group_use2, rev(c("I", "II", "III", "IV", "V", "VI", 
+                                                           "VII", "VIII", "IX", "X", "XI", "XII", "XIII")))
+
+dat_plot <- vagitype_age %>%
+  group_by(Age_merge, group_use) %>%
+  summarise(n=n()) %>%
+  mutate(relative_freq = n/sum(n))
+
+p <- ggplot(data = dat_plot, mapping = aes(x = Age_merge, y= relative_freq, fill = group_use, stratum = group_use, alluvium = group_use))
+p <- p + scale_fill_manual(values = c("I-I"="#E98DAF", "I-II"="#11A579",
+                                      "II-I"="#219EBC", "II-II"="#3969AC",
+                                      "III"="#FFED6F", "IV"="#0E606B", "V"="#E9CF91",
+                                      "VI"="#95C6C6", "VII"="#7F3C8D", "VIII"="#F8766D",
+                                      "IX"="#E73F74", "X"="#FEB705", "XI"="#BEBADA", 
+                                      "XII"="#A5AA99", "XIII"="#000000CC"), name = "Vagitype")
+
+p <- p + geom_col(width = 0.6, color = NA, linewidth = 0.5)
+p <- p + geom_flow(width = 0.6, alpha = 0.5, knot.pos = 0.4, color = 'white', linewidth = 0.5)
+p <- p + geom_alluvium(width = 0.6, alpha = 0.5, knot.pos = 0.4, fill = NA, color = 'white', linewidth = 0.5)
+p <- p + labs(x = 'Age',y = 'frequnency') 
+p <- p + my_theme2
+p
+ggsave(plot = p, filename = "Age_Vagitype.pdf", width = 13, height = 6)
+#---------------------------------------------------------------------------------
+dat_plot <- vagitype_age %>%
+  group_by(Age_group, group_use2) %>%#分组
+  summarise(n=n()) %>%
+  mutate(relative_freq = n/sum(n))
+
+p <- ggplot(data = dat_plot, mapping = aes(x = factor(Age_group, levels = c("Group2", "Group1")), y = relative_freq, 
+                                           fill = group_use2, stratum = group_use2, alluvium = group_use2))
+p <- p + scale_fill_manual(values = c("I"="#E98DAF", "II"="#219EBC", 
+                                      "III"="#FFED6F", "IV"="#0E606B", "V"="#E9CF91",
+                                      "VI"="#95C6C6", "VII"="#7F3C8D", "VIII"="#F8766D",
+                                      "IX"="#E73F74", "X"="#FEB705", "XI"="#BEBADA", 
+                                      "XII"="#A5AA99", "XIII"="#000000CC"), name = "Vagitype")
+
+p <- p + geom_col(width = 0.6, color = NA, linewidth = 0.5)
+p <- p + geom_text(aes(label = paste0(round(relative_freq*100, digits = 2), "%")), position = position_stack(vjust = 0.5))
+p <- p + geom_flow(width = 0.6, alpha = 0.5, knot.pos = 0.4, color = 'white', linewidth = 0.5)
+
+p <- p + geom_alluvium(width = 0.6, alpha = 0.5, knot.pos = 0.4, fill = NA, color = 'white', linewidth = 0.5)
+p <- p + labs(x = 'Age',y = 'frequnency') 
+p <- p + coord_flip()
+p <- p + my_theme2
+p
+ggsave(plot = p, filename = "vagitype_age.pdf", width = 10, height = 2)
+
