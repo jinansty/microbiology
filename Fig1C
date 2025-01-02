@@ -1,0 +1,60 @@
+
+
+library(openxlsx)
+library(funrar)
+
+taxonomy_use <- read.xlsx("taxonomy_species.xlsx", sheet = 2)
+
+ASV.count <- read.xlsx("ASV_count.xlsx", sheet = 1, rowNames = T)
+
+ASV.rel <- make_relative(t(ASV.count))
+ASV.rel <- as.data.frame(t(ASV.rel))
+write.xlsx(ASV.rel, file = "ASV_rel.xlsx", asTable = T, overwrite = T, rowNames = T)
+#------------------------------------------------------------------------------
+ASV.rel.use <- ASV.rel
+ASV.rel.use$ASV <- rownames(ASV.rel.use) 
+
+ASV.rel.use <- merge(ASV.rel.use, taxonomy_use[,c("ASV", "Anno_use")], by.x = "ASV", by.y = "ASV")
+ASV.rel.use <- ASV.rel.use[,-1]
+ASV.rel.use <- aggregate(x = ASV.rel.use[,-ncol(ASV.rel.use)], by = list(ASV.rel.use[,ncol(ASV.rel.use)]), FUN = sum)
+rownames(ASV.rel.use) <- ASV.rel.use$Group.1
+ASV.rel.use <- ASV.rel.use[,-1]
+write.xlsx(ASV.rel.use, file = "ASV_rel_species.xlsx", asTable = T, overwrite = T, rowNames = T)
+#------------------------------------------------------------------------------
+ASV.rel.use$sum <- rowSums(ASV.rel.use)
+ASV.rel.use <- ASV.rel.use[order(ASV.rel.use$sum, decreasing = TRUE),]
+
+ASV.rel.use_top10 <- ASV.rel.use[c(1:10, which(rownames(ASV.rel.use) %in% c("BVAB1", "BVAB2", "BVAB3"))), -ncol(ASV.rel.use)]
+
+## others
+ASV.rel.use_top10['Others', ] <- 1 - colSums(ASV.rel.use_top10)
+colSums(ASV.rel.use_top10)
+
+write.xlsx(ASV.rel.use_top10, 'species_top10.xlsx', rowNames = T, asTable = T, overwrite = T)
+#################################################################################
+####ggplot2
+library(reshape2)
+library(ggplot2)
+library(forcats)
+library(dplyr)
+
+ASV.rel.use_top10$Taxonomy <- factor(rownames(ASV.rel.use_top10), levels = rev(rownames(ASV.rel.use_top10)))
+ASV.rel.use_top10_plot <- melt(ASV.rel.use_top10, id = 'Taxonomy')
+
+ASV.rel.use_top10_plot$value <- abs(ASV.rel.use_top10_plot$value)
+
+ASV.rel.use_top10 <- ASV.rel.use_top10[,order(as.numeric(ASV.rel.use_top10["Lactobacillus_crispatus",]))]
+ASV.rel.use_top10_plot$variable <- factor(ASV.rel.use_top10_plot$variable, levels = colnames(ASV.rel.use_top10))
+
+p <- ggplot(ASV.rel.use_top10_plot, aes(variable, 100 * value, fill = Taxonomy))
+p <- p + geom_col(position="stack")
+p <- p + scale_fill_manual(values = c("Lactobacillus_crispatus" = "#E98DAF", "Lactobacillus_iners" = "#49B1DD",
+                                      "Gardnerella_vaginalis" = "#E9CF91", "Lactobacillus_gasseri" = "#95C6C6",
+                                      "Fannyhessea_vaginae" = "#79C0D1", "Lactobacillus_jensenii" = "#7F3C8D",
+                                      "Ureaplasma_parvum" = "#FEB705", "Prevotella_bivia" = "#0E606B",
+                                      "Streptococcus_anginosus" = "#AD002A", "Prevotella_timonensis" = "#00F5FF",
+                                      "Others" = "black", "BVAB1" = "yellow", "BVAB2" = "#E73F74", "BVAB3" = "#E15759"))
+p <- p + labs(x = '', y = 'Relative Abundance(%)')
+p <- p + theme(axis.ticks.x = element_blank(), axis.line.x = element_blank(), axis.text.x = element_blank())
+p
+ggsave('species_top10_taxa_barplot.pdf', p, width = 9, height = 4.5)
