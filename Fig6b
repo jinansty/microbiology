@@ -1,0 +1,104 @@
+
+library(ggplot2)
+library(vegan)
+library(openxlsx)
+library(ggstar)
+library(RColorBrewer)
+
+BV.sel <- BV.group[BV.group$BV %in% c("2", "3"),]
+table(BV.sel$Nugent)
+
+bray_curtis <- read.delim("bray_curtis.sorted.txt", sep="\t", row.names = 1, check.names=F, stringsAsFactors = F)
+BV.sel <- BV.sel[BV.sel$Vid %in% rownames(bray_curtis),]
+
+bray_curtis_sel <- bray_curtis[BV.sel$Vid, BV.sel$Vid]
+
+#k is dimension, 3 is recommended; eig is eigenvalues
+pcoa <- cmdscale(bray_curtis_sel, k=3, eig=T)
+
+rel.otu.sel <- read.xlsx("Species_rel.xlsx", sheet = 1, rowNames = T)
+rel.otu.sel <- rel.otu.sel[,BV.sel$Vid]
+species <- wascores(pcoa$points[,1:3], t(rel.otu.sel))
+
+species_top <- data.frame(species[c("Lactobacillus_iners", "Lactobacillus_crispatus", "Gardnerella_vaginalis",
+                                    "Fannyhessea_vaginae", "Lactobacillus_gasseri", "Ureaplasma_parvum",
+                                    "Prevotella_bivia", "Streptococcus_anginosus", "Prevotella_timonensis",
+                                    "Sneathia_amnii", "Megasphaera", "Lactobacillus_johnsonii",
+                                    "Prevotella_amnii", "Aerococcus_christensenii", "Streptococcus_gallolyticus",
+                                    "Bifidobacterium_longum"), 1:2])
+species_top$name <- rownames(species_top)
+
+group <- "Nugent"
+
+points <- as.data.frame(pcoa$points)
+colnames(points) <- c("x", "y", "z") 
+eig <- pcoa$eig
+points <- cbind(points, BV.sel[match(rownames(points), BV.sel$Vid),])
+points$title <- group
+
+xlab <- paste("PCoA 1 (", format(100 * eig[1] / sum(eig), digits=4), "%)", sep="")
+ylab <- paste("PCoA 2 (", format(100 * eig[2] / sum(eig), digits=4), "%)", sep="")
+
+p <- ggplot(data = points, aes(x = x, y = y ,color = as.factor(get(group))))
+p <- p + geom_point(aes(size=get(group), alpha=get(group)))
+p <- p + scale_size_continuous(range = c(1, 4))
+p <- p + scale_alpha_continuous(range = c(1, 0.6))
+p <- p + labs(x=xlab, y=ylab)
+p <- p + geom_hline(yintercept=0, linetype=4, color="grey")
+p <- p + geom_vline(xintercept=0, linetype=4, color="grey") 
+
+p <- p + stat_ellipse(data = points, aes(x = x, y = y, color = as.factor(get(group)), fill = as.factor(get(group))), geom = "polygon", linetype = 2, linewidth = 0.8, alpha = 0.75, level = 0.1)
+
+p <- p + scale_color_manual(values = c("4"="#FFED6F", "5"="#0E606B",  "6"="#F8766D", "7"="#BEBADA", "8"="#95C6C6"))
+p <- p + scale_fill_manual(values = c("4"="#FFED6F", "5"="#0E606B",  "6"="#F8766D", "7"="#BEBADA", "8"="#95C6C6"))
+
+p <- p + geom_text(data = species_top, aes(X1, X2, label = name), color = "black", size = 3)
+#p <- p + geom_star(data = species_top, aes(X1, X2), color = "black", fill = "black", size = 3)
+
+p <- p + geom_segment(aes(x=0, xend = species_top$X1[1],y=0,yend = species_top$X2[1]),arrow = arrow(length = unit(0.2,"cm"), type="closed"), arrow.fill="black", colour="black")
+p <- p + geom_segment(aes(x=0, xend = species_top$X1[2],y=0,yend = species_top$X2[2]),arrow = arrow(length = unit(0.2,"cm"), type="closed"), arrow.fill="black", colour="black")
+p <- p + geom_segment(aes(x=0, xend = species_top$X1[3],y=0,yend = species_top$X2[3]),arrow = arrow(length = unit(0.2,"cm"), type="closed"), arrow.fill="black", colour="black")
+p <- p + geom_segment(aes(x=0, xend = species_top$X1[4],y=0,yend = species_top$X2[4]),arrow = arrow(length = unit(0.2,"cm"), type="closed"), arrow.fill="black", colour="black")
+p <- p + geom_segment(aes(x=0, xend = species_top$X1[5],y=0,yend = species_top$X2[5]),arrow = arrow(length = unit(0.2,"cm"), type="closed"), arrow.fill="black", colour="black")
+p <- p + geom_segment(aes(x=0, xend = species_top$X1[6],y=0,yend = species_top$X2[6]),arrow = arrow(length = unit(0.2,"cm"), type="closed"), arrow.fill="black", colour="black")
+p <- p + geom_segment(aes(x=0, xend = species_top$X1[7],y=0,yend = species_top$X2[7]),arrow = arrow(length = unit(0.2,"cm"), type="closed"), arrow.fill="black", colour="black")
+p <- p + geom_segment(aes(x=0, xend = species_top$X1[8],y=0,yend = species_top$X2[8]),arrow = arrow(length = unit(0.2,"cm"), type="closed"), arrow.fill="black", colour="black")
+p <- p + geom_segment(aes(x=0, xend = species_top$X1[9],y=0,yend = species_top$X2[9]),arrow = arrow(length = unit(0.2,"cm"), type="closed"), arrow.fill="black", colour="black")
+p <- p + geom_segment(aes(x=0, xend = species_top$X1[10],y=0,yend = species_top$X2[10]),arrow = arrow(length = unit(0.2,"cm"), type="closed"), arrow.fill="black", colour="black")
+p <- p + geom_segment(aes(x=0, xend = species_top$X1[11],y=0,yend = species_top$X2[11]),arrow = arrow(length = unit(0.2,"cm"), type="closed"), arrow.fill="black", colour="black")
+p <- p + geom_segment(aes(x=0, xend = species_top$X1[12],y=0,yend = species_top$X2[12]),arrow = arrow(length = unit(0.2,"cm"), type="closed"), arrow.fill="black", colour="black")
+p <- p + geom_segment(aes(x=0, xend = species_top$X1[13],y=0,yend = species_top$X2[13]),arrow = arrow(length = unit(0.2,"cm"), type="closed"), arrow.fill="black", colour="black")
+p <- p + geom_segment(aes(x=0, xend = species_top$X1[14],y=0,yend = species_top$X2[14]),arrow = arrow(length = unit(0.2,"cm"), type="closed"), arrow.fill="black", colour="black")
+p <- p + geom_segment(aes(x=0, xend = species_top$X1[15],y=0,yend = species_top$X2[15]),arrow = arrow(length = unit(0.2,"cm"), type="closed"), arrow.fill="black", colour="black")
+p <- p + geom_segment(aes(x=0, xend = species_top$X1[16],y=0,yend = species_top$X2[16]),arrow = arrow(length = unit(0.2,"cm"), type="closed"), arrow.fill="black", colour="black")
+
+p <- p + theme_bw()
+p <- p + theme(legend.title = element_text(size = 12)
+p <- p + theme(legend.text = element_text(size = 10))
+p <- p + theme(axis.title.y=element_text(size=12))
+p <- p + theme(axis.title.x=element_text(size=12))
+p <- p + theme(title=element_text(size=13), plot.title = element_text(hjust = 0.5))
+p <- p + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+p <- p + theme(legend.position = 'top')
+print(p)
+ggsave(p, filename = paste0("Bray Curtis-", group, "_1.pdf"), device = "pdf", width = 8, height = 8.5)
+#---------------------------------------------------------------
+library(ggpubr)
+
+p <- ggplot(data = points, aes(x = as.factor(Nugent), y = y, fill = as.factor(Nugent))) 
+p <- p + scale_fill_manual(values = c("4"="#FFED6F", "5"="#0E606B",  "6"="#F8766D", "7"="#BEBADA", "8"="#95C6C6")) 
+
+p <- p + geom_boxplot(notch = TRUE, outlier.size = -1, color="black", lwd=0.5, alpha = 0.7)
+p <- p + ggtitle("") + xlab("") + ylab("") 
+
+p <- p + theme_bw() + theme(axis.text.x = element_text(hjust = 0.5, size = 12, color = "black"),
+                            axis.text.y = element_text(hjust = 0.5, size = 10, color = "black"),
+                            axis.ticks = element_line(linewidth = 0.2, color="black"),
+                            axis.ticks.length = unit(0.2, "cm"),
+                            legend.position = "none",
+                            axis.title = element_text(size = 12, color = "black"),
+                            plot.title = element_text(size = 12, color = "black"),
+                            strip.text = element_text(size = 16, color = "white"),
+                            panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+p
+ggsave(plot = p, "Figure boxplot.pdf", width = 3, height = 8.5)
