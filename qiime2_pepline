@@ -25,7 +25,7 @@ qiime metadata tabulate --m-input-file vag_filter_merge_dada2_rep_seq_taxonomy.q
 
 #Remove the rare ASVs by R
 
-#usearch 11 analysis
+#usearch analysis
 usearch11 -otutab_stats taxa_optimal.txt -output ASV_use_report.txt
 usearch11 -calc_distmx repSeq_use.fasta -tabbedout ASV_distmx.txt
 
