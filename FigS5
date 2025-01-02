@@ -1,0 +1,113 @@
+
+kegg_abundance <- read.delim("picrust2_out/KEGG_pathways_out/path_abun_unstrat_descrip.tsv", header = T, sep = "\t", check.names = F, stringsAsFactors = F)
+
+kegg_anno <- kegg_abundance[,c(1,2)]
+
+kegg_abundance <- kegg_abundance[,-2]
+rownames(kegg_abundance) <- kegg_abundance$pathway
+kegg_abundance <- kegg_abundance[,-1]
+#------------------------------------------------------------------------------------------
+library(openxlsx)
+
+Age.group <- read.xlsx("Age_group.xlsx", sheet = 1)
+
+group <- Age.group
+group <- group[match(colnames(kegg_abundance), group$Vid),]
+#------------------------------------------------------------------------------------------
+boxplot(kegg_abundance[1:10])
+
+kegg_abundance_use <- log2(kegg_abundance+1)
+boxplot(kegg_abundance_use[1:10])
+#------------------------------------------------------------------------------
+library(limma)
+library(openxlsx)
+
+keep <- apply(kegg_abundance_use, 1, function(x) var(x, na.rm = TRUE) > 0)
+table(keep)            
+kegg_abundance_use <- data.matrix(kegg_abundance_use[keep,])
+
+group <- as.factor(group$Age_group)
+design <- model.matrix(~0+group)
+colnames(design) <- levels(group)
+rownames(design) <- colnames(kegg_abundance_use)
+design
+
+contrast.matrix <- makeContrasts("Group2-Group1", levels = design)
+contrast.matrix
+
+fit <- lmFit(kegg_abundance_use, design, trend = T)
+fit2 <- contrasts.fit(fit, contrast.matrix)
+fit2 <- eBayes(fit2)
+allDiff <- topTable(fit2, coef = 1, n = Inf, sort.by = "logFC")
+nrDEG <- na.omit(allDiff)
+head(nrDEG)
+write.xlsx(nrDEG, file="allDiff.xlsx", asTable = T, overwrite = T, rowNames = T)
+
+diffSig <- allDiff[(abs(allDiff$logFC) > 0 & allDiff$adj.P.Val < 0.01),]
+nrow(diffSig[diffSig$logFC > 0,])#63
+nrow(diffSig[diffSig$logFC < 0,])#48
+diffSig$group <- ifelse(diffSig$logFC > 0, yes = "UP", no = "DOWN")
+#------------------------------------------------------------------------------
+#Annotation
+diffSig$KO <- rownames(diffSig)
+diffSig <- merge(diffSig, kegg_anno, by.x = "KO", by.y = "pathway")
+diffSig <- diffSig[order(diffSig$logFC, decreasing = T),]
+write.xlsx(diffSig, file="diffSig.xlsx", asTable = T, overwrite = T, rowNames = T)
+
+rownames(diffSig) <- diffSig$KO
+#------------------------------------------------------------------------------
+#T test
+res <- data.frame()
+for (i in 1:nrow(kegg_abundance_use)) {
+  tmp <- t.test(x = kegg_abundance_use[i, group$Vid[group$Age_group %in% "Group1"]],
+                y = kegg_abundance_use[i, group$Vid[group$Age_group %in% "Group2"]])
+  print(tmp)
+  
+  res[i,1] <- rownames(kegg_abundance_use)[i]
+  res[i,2] <- tmp$p.value
+}
+res$fdr <- p.adjust(res$V2, method = "fdr")
+res$Sig <- ifelse(res$fdr < 0.01, yes = "Sig", no = "NO")
+#------------------------------------------------------------------------------
+kegg_abundance_use_sel <- kegg_abundance_use[diffSig$KO,]
+
+data_handle <- as.data.frame(t(kegg_abundance_use_sel))
+data_handle$Samples <- rownames(data_handle)
+data_handle <- merge(data_handle, Age.group[,c(1,3)], by.x = "Samples", by.y = "Vid")
+rownames(data_handle) <- data_handle$Samples
+data_handle <- data_handle[,-1]
+
+data_handle <- aggregate(x = data_handle[,-ncol(data_handle)], by = list(data_handle[,ncol(data_handle)]), FUN = mean)
+rownames(data_handle) <- data_handle$Group.1
+data_handle <- data_handle[,-1]
+
+data_handle <- as.data.frame(t(data_handle))
+rownames(data_handle) <- kegg_anno$description[match(rownames(data_handle), kegg_anno$pathway)]
+write.xlsx(data_handle, file = "data_handle.xlsx", rowNames = T, overwrite = T)
+#------------------------------------------------------------------------------
+library(ClusterGVis)
+
+a <- getClusters(exp = data_handle)
+ggsave(a, filename = paste0("getClusters.pdf"), width = 5, height = 5)
+
+ck <- clusterData(exp = data_handle,
+                  cluster.method = "kmeans",
+                  cluster.num = 2)
+
+markGenes <- rownames(data_handle)
+
+p <- visCluster(object = ck, border = T, 
+                ht.col.list = list(col_range = c(-5, 0, 5),col_color = c("#219EBC", "white", "#E73F74")),
+                plot.type = "both", 
+                cluster_columns = F,  ctAnno.col = c("#49B1DD","#E98DAF","#BEBADA","#E9CF91","#95C6C6", "#A5AA99"),
+                sample.group = c(rep("2young", 25), rep("4old", 13)), 
+                #sample.col = c(rep("#219EBC", 4), rep("#219EBC", 5), rep("#E73F74", 5)),
+                column_names_rot = 45, 
+                add.box = F, 
+                add.point = T, c(19, "#FEB705", "#FEB705", 0.5),
+                markGenes = markGenes, genes.gp = c('italic',6.2, NA))
+
+pdf("Age_ClusterGVis.pdf", width = 9, height = 13)
+print(p)
+dev.off()
+
