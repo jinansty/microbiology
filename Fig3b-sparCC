@@ -41,3 +41,44 @@ table(cor_df_use$Tag)
 pdf(file = "pie.pdf", width = 3, height = 3)
 pie(table(cor_df_use$Tag))
 dev.off()
+#######################################################################################################
+library(igraph)
+library(scales)
+
+igraph <- graph_from_data_frame(cor_df_use, direct = F)
+
+length(V(igraph)) #nodes
+length(E(igraph)) #edges
+
+species.mean <- rowMeans(species.count.use)
+names(species.mean) <- rownames(species.count.use)
+species.mean.use <- species.mean[names(degree(igraph))]
+
+V(igraph)$size <- rescale(log2(species.mean.use+1), c(2,12))
+
+species_anno <- read.xlsx("species_anno.xlsx", sheet = 1)
+species.color.tmp <- paste0(species.color$Color, "CC")
+names(species.color.tmp) <- species.color$Anno_use2
+species.color.use <- species.color.tmp[names(degree(igraph))]
+
+V(igraph)$color <- species.color.use
+
+species_tag <- read.xlsx("species_anno.xlsx", sheet = 2)
+species.tag.tmp <- species_tag$Tag
+names(species.tag.tmp) <- species_tag$Anno_use
+V(igraph)$name <- species.tag.tmp[names(degree(igraph))]
+
+E(igraph)$color[E(igraph)$cor >= 0] <- "#FFD700CC"
+E(igraph)$color[E(igraph)$cor <= 0] <- "#828282CC"
+E(igraph)$width <- abs(E(igraph)$cor)*15
+
+lc <- cluster_fast_greedy(igraph)
+lc <- data.frame("names" = lc$names, "membership" = lc$membership)
+write.xlsx(lc, file = "lc.xlsx") #print the cluster results
+
+coords <- layout_components(igraph)
+
+pdf("species_net.pdf", height = 10, width = 10)
+plot(igraph, #vertex.label = NA, 
+     vertex.frame.color = "#000000CC", layout = coords, edge.curved = 0.1)
+dev.off()
