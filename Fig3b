@@ -1,0 +1,43 @@
+
+#fastspar caculated correlation between bacteria species and species
+fastspar --otu_table species_count.tsv --correlation median_correlation.tsv --covariance median_covariance.tsv --iterations 50
+
+mkdir bootstrap_counts
+fastspar_bootstrap --otu_table species_count.tsv --number 1000 --prefix bootstrap_counts/net_data
+
+mkdir bootstrap_correlation
+for fname in `ls bootstrap_counts`
+do
+echo $fname
+fastspar --otu_table bootstrap_counts/$fname --correlation bootstrap_correlation/cor_$fname --covariance bootstrap_correlation/cov_$fname --iterations 10
+done
+
+fastspar_exactpvalues --otu_table species_count.tsv --correlation median_correlation.tsv --prefix bootstrap_correlation/cor_net_data_ --permutations 1000 --outfile pvalues.tsv
+#######################################################################################################
+#handle the fastspar results by R
+library(tidyverse)
+
+CorrDF <- function(cormat, pmat) {
+  ut <- upper.tri(cormat) 
+  data.frame(
+    from = rownames(cormat)[col(cormat)[ut]],
+    to = rownames(cormat)[row(cormat)[ut]],
+    cor = (cormat)[ut],
+    p = pmat[ut]
+  )
+}
+
+correlation <- read.delim("median_correlation.tsv", row.names = 1, check.names = F, stringsAsFactors = F)
+pvalue <- read.delim("species.count.use_pvalues.tsv", row.names = 1, check.names = F, stringsAsFactors = F)
+
+cor_df <- CorrDF(correlation, pvalue)
+
+cor_df_use <- cor_df[which(cor_df$p < 0.01),]
+cor_df_use <- cor_df_use[which(abs(cor_df_use$cor) >= 0.1),]
+cor_df_use$Tag <- ifelse(test = cor_df_use$cor > 0, yes = "Positive", no = "Negative")
+write.xlsx(cor_df_use, "cor_df_use.xlsx", asTable = T, overwrite = T)
+
+table(cor_df_use$Tag)
+pdf(file = "pie.pdf", width = 3, height = 3)
+pie(table(cor_df_use$Tag))
+dev.off()
