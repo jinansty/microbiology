@@ -1,0 +1,20 @@
+library(qgraph)
+library(ggplot2)
+library(tidydr)
+
+my_theme2 <- theme_bw() + theme(axis.text.x = element_text(hjust = 0.5, size = 12, color = "black"),
+                                axis.text.y = element_text(hjust = 0.5, size = 12, color = "black"),
+                                axis.title = element_text(size = 12, color = "black"),
+                                plot.title = element_text(size = 16, color = "black"),
+                                axis.ticks = element_line(linewidth = 0.2, color="black"),
+                                axis.ticks.length = unit(0.2, "cm"),
+                                strip.text = element_text(size = 12),
+                                panel.grid.major = element_blank(), 
+                                panel.grid.minor = element_blank())
+
+strength(igraph)[order(strength(igraph), decreasing = T)]
+
+p <- centralityPlot(igraph, include = c("Strength", "Betweenness", "Closeness", "ExpectedInfluence"), orderBy = "ExpectedInfluence", decreasing = F)
+p <- p + my_theme2
+p
+ggsave(plot = p, filename = "centralityPlot.pdf", width = 6, height = 9)
