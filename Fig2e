@@ -1,0 +1,194 @@
+
+library(vegan)
+library(openxlsx)
+library(parallel)
+
+metadata <- read.xlsx("../../metadata.new.xlsx", sheet = 1, rowNames = T)
+metadata$Samples <- rownames(metadata)
+#----------------------------------------------------------------------------------
+
+#adonis2
+
+#----------------------------------------------------------------------------------
+dist_matrix <- read.delim("beta_res/bray_curtis.sorted.txt", header = T, sep = "\t", check.names = F, stringsAsFactors = F, row.names = 1)
+#dist_matrix <- read.delim("beta_res/jaccard.sorted.txt", header = T, sep = "\t", check.names = F, stringsAsFactors = F, row.names = 1)
+#dist_matrix <- read.delim("beta_res/unifrac_binary.sorted.txt", header = T, sep = "\t", check.names = F, stringsAsFactors = F, row.names = 1)
+#dist_matrix <- read.delim("beta_res/unifrac.sorted.txt", header = T, sep = "\t", check.names = F, stringsAsFactors = F, row.names = 1)
+
+tmp <- matrix(nrow = 81, ncol = 3)
+for (i in 1:81) {
+  metadata_sel <- metadata[,c(i,82)]
+  metadata_sel <- metadata_sel[!metadata_sel[,1] %in% "Other",]
+  
+  dist_matrix_sel <- dist_matrix[rownames(dist_matrix) %in% rownames(metadata_sel),
+                                 colnames(dist_matrix) %in% rownames(metadata_sel)]
+  
+  metadata_sel <- metadata_sel[rownames(metadata_sel) %in% colnames(dist_matrix_sel),]
+  
+  print(paste(i, "-", colnames(metadata_sel)[1]))
+  metadata_sel[,1] <- as.factor(metadata_sel[,1])
+  metadata_sel <- metadata_sel[colnames(dist_matrix_sel),]
+  
+  dist_matrix_sel <- as.dist(dist_matrix_sel)
+  
+  if(all.equal(labels(dist_matrix_sel), rownames(metadata_sel))){
+    ## default test by terms
+    adonis_result <- adonis2(dist_matrix_sel ~ metadata_sel[,1], data = metadata_sel, permutations = 1000, parallel = 8)
+    print(adonis_result)
+    tmp[i,1] <- colnames(metadata_sel)[1]
+    tmp[i,2] <- adonis_result$R2[1]
+    tmp[i,3] <- adonis_result$`Pr(>F)`[1]
+  }
+}
+
+write.table(tmp, file = "adonis2_bray_curtis_result.txt", quote = F, sep = "\t", row.names = F)
+#----------------------------------------------------------------------------------
+
+#anosim
+
+#----------------------------------------------------------------------------------
+dist_matrix <- read.delim("beta_res/bray_curtis.sorted.txt", header = T, sep = "\t", check.names = F, stringsAsFactors = F, row.names = 1)
+#dist_matrix <- read.delim("beta_res/jaccard.sorted.txt", header = T, sep = "\t", check.names = F, stringsAsFactors = F, row.names = 1)
+#dist_matrix <- read.delim("beta_res/unifrac_binary.sorted.txt", header = T, sep = "\t", check.names = F, stringsAsFactors = F, row.names = 1)
+#dist_matrix <- read.delim("beta_res/unifrac.sorted.txt", header = T, sep = "\t", check.names = F, stringsAsFactors = F, row.names = 1)
+
+tmp <- matrix(nrow = 81, ncol = 3)
+for (i in 1:81) {
+  metadata_sel <- metadata[,c(i,82)]
+  metadata_sel <- metadata_sel[!metadata_sel[,1] %in% "Other",]
+  
+  dist_matrix_sel <- dist_matrix[rownames(dist_matrix) %in% rownames(metadata_sel),
+                                 colnames(dist_matrix) %in% rownames(metadata_sel)]
+  
+  metadata_sel <- metadata_sel[rownames(metadata_sel) %in% colnames(dist_matrix_sel),]
+  
+  print(paste(i, "-", colnames(metadata_sel)[1]))
+  metadata_sel[,1] <- as.factor(metadata_sel[,1])
+  metadata_sel <- metadata_sel[colnames(dist_matrix_sel),]
+  
+  dist_matrix_sel <- as.dist(dist_matrix_sel)
+  
+  if(all.equal(labels(dist_matrix_sel), rownames(metadata_sel))){
+    ## default test by terms
+    anosim_result <- anosim(dist_matrix_sel, metadata_sel[,1], permutations = 1000, parallel = 8)
+    print(anosim_result)
+    tmp[i,1] <- colnames(metadata_sel)[1]
+    tmp[i,2] <- anosim_result$statistic
+    tmp[i,3] <- anosim_result$signif
+  }
+}
+
+write.table(tmp, file = "anosim_bray_curtis_result.txt", quote = F, sep = "\t", row.names = F)
+#----------------------------------------------------------------------------------
+
+#dbrda
+
+#----------------------------------------------------------------------------------
+dist_matrix <- read.delim("beta_res/bray_curtis.sorted.txt", header = T, sep = "\t", check.names = F, stringsAsFactors = F, row.names = 1)
+#dist_matrix <- read.delim("beta_res/jaccard.sorted.txt", header = T, sep = "\t", check.names = F, stringsAsFactors = F, row.names = 1)
+#dist_matrix <- read.delim("beta_res/unifrac_binary.sorted.txt", header = T, sep = "\t", check.names = F, stringsAsFactors = F, row.names = 1)
+#dist_matrix <- read.delim("beta_res/unifrac.sorted.txt", header = T, sep = "\t", check.names = F, stringsAsFactors = F, row.names = 1)
+
+tmp <- matrix(nrow = 81, ncol = 3)
+for (i in 1:81) {
+  metadata_sel <- metadata[,c(i,82)]
+  metadata_sel <- metadata_sel[!metadata_sel[,1] %in% "Other",]
+  
+  dist_matrix_sel <- dist_matrix[rownames(dist_matrix) %in% rownames(metadata_sel),
+                                 colnames(dist_matrix) %in% rownames(metadata_sel)]
+  
+  metadata_sel <- metadata_sel[rownames(metadata_sel) %in% colnames(dist_matrix_sel),]
+  
+  print(paste(i, "-", colnames(metadata_sel)[1]))
+  metadata_sel[,1] <- as.factor(metadata_sel[,1])
+  metadata_sel <- metadata_sel[colnames(dist_matrix_sel),]
+  
+  dist_matrix_sel <- as.dist(dist_matrix_sel)
+  
+  if(all.equal(labels(dist_matrix_sel), rownames(metadata_sel))){
+    ## default test by terms
+    dbRDA_result <- dbrda(dist_matrix_sel ~ metadata_sel[,1], data = metadata_sel, add = TRUE, parallel = 8)
+    a <- anova.cca(dbRDA_result, permutations = 1000, parallel = 8)
+    
+    print(c("r.squared: ", RsquareAdj(dbRDA_result)$r.squared))
+    print(c("adj.r.squared: ", RsquareAdj(dbRDA_result)$adj.r.squared))
+    print(a)
+
+    tmp[i,1] <- colnames(metadata_sel)[1]
+    tmp[i,2] <- RsquareAdj(dbRDA_result)$r.squared
+    tmp[i,3] <- RsquareAdj(dbRDA_result)$adj.r.squared
+    tmp[i,4] <- a$`Pr(>F)`[1]
+  }
+}
+
+write.table(tmp, file = "dbrda_bray_curtis_result2.txt", quote = F, sep = "\t", row.names = F)
+#----------------------------------------------------------------------------------
+
+#mrpp
+
+#----------------------------------------------------------------------------------
+dist_matrix <- read.delim("beta_res/bray_curtis.sorted.txt", header = T, sep = "\t", check.names = F, stringsAsFactors = F, row.names = 1)
+#dist_matrix <- read.delim("beta_res/jaccard.sorted.txt", header = T, sep = "\t", check.names = F, stringsAsFactors = F, row.names = 1)
+#dist_matrix <- read.delim("beta_res/unifrac_binary.sorted.txt", header = T, sep = "\t", check.names = F, stringsAsFactors = F, row.names = 1)
+#dist_matrix <- read.delim("beta_res/unifrac.sorted.txt", header = T, sep = "\t", check.names = F, stringsAsFactors = F, row.names = 1)
+
+tmp <- matrix(nrow = 81, ncol = 3)
+for (i in 1:81) {
+  metadata_sel <- metadata[,c(i,82)]
+  metadata_sel <- metadata_sel[!metadata_sel[,1] %in% "Other",]
+  
+  dist_matrix_sel <- dist_matrix[rownames(dist_matrix) %in% rownames(metadata_sel),
+                                 colnames(dist_matrix) %in% rownames(metadata_sel)]
+  
+  metadata_sel <- metadata_sel[rownames(metadata_sel) %in% colnames(dist_matrix_sel),]
+  
+  print(paste(i, "-", colnames(metadata_sel)[1]))
+  metadata_sel[,1] <- as.factor(metadata_sel[,1])
+  metadata_sel <- metadata_sel[colnames(dist_matrix_sel),]
+  
+  dist_matrix_sel <- as.dist(dist_matrix_sel)
+  
+  if(all.equal(labels(dist_matrix_sel), rownames(metadata_sel))){
+    ## default test by terms
+    mrpp_result <- mrpp(dist_matrix_sel, metadata_sel[,1], permutations = 1000, parallel = 8)
+    print(mrpp_result)
+    tmp[i,1] <- colnames(metadata_sel)[1]
+    tmp[i,2] <- mrpp_result$delta
+    tmp[i,3] <- mrpp_result$E.delta
+	  tmp[i,4] <- mrpp_result$A
+	  tmp[i,5] <- mrpp_result$Pvalue
+  }
+}
+
+write.table(tmp, file = "mrpp_bray_curtis_result.txt", quote = F, sep = "\t", row.names = F)
+#--------------------------------------------------------------------------------------
+#sdjust p value
+library(openxlsx)
+
+txt <- list.files(path = ".", pattern = "txt", full.names = FALSE, ignore.case = FALSE)
+
+res <- read.delim(txt, sep = "\t", header = T, check.names = F, stringsAsFactors = F)
+res$fdr <- p.adjust(res$`P value`, method = "fdr", n = length(res$`P value`))
+
+write.xlsx(res, file = paste0(gsub(pattern = ".txt", replacement = "", x = txt),".xlsx"), asTable = T, overwrite = T)
+#--------------------------------------------------------------------------------------
+library(ggvenn)
+
+bary_curtis <- read.xlsx("bray-curtis/mrpp_bray_curtis_result.xlsx", sheet = 1)
+jaccard <- read.xlsx("jaccard/mrpp_jaccard_result.xlsx", sheet = 1)
+unweighted_Unifrac <- read.xlsx("unweighted_Unifrac/mrpp_unweighted_result.xlsx", sheet = 1)
+weighted_Unifrac <- read.xlsx("weighted_Unifrac/mrpp_weighted_result.xlsx", sheet = 1)
+
+venn_list <- list("bary_curtis" = bary_curtis$Variable[bary_curtis$fdr < 0.1], 
+                  "jaccard" = jaccard$Variable[jaccard$fdr < 0.1],
+                  "unweighted_Unifrac" = unweighted_Unifrac$Variable[unweighted_Unifrac$fdr < 0.1],
+                  "weighted_Unifrac" = weighted_Unifrac$Variable[weighted_Unifrac$fdr < 0.1])
+
+p <- ggvenn(data = venn_list,
+            columns = c("bary_curtis", "jaccard", "unweighted_Unifrac", "weighted_Unifrac"),
+            show_percentage = T, stroke_color = "white", 
+            fill_color = c("#E98DAFCC", "#E9CF91CC", "#49B1DDCC", "#95C6C6CC"),
+            set_name_color = c("#E98DAF", "#E9CF91", "#49B1DD", "#95C6C6"),
+            set_name_size = 6)
+p
+ggsave(plot = p, filename = "Venn.pdf", dpi = 300, width = 6, height = 6)
