@@ -1,0 +1,137 @@
+
+library(openxlsx)
+
+rel_species <- read.xlsx("Species_rel.xlsx", sheet = 1, rowNames = T)
+
+species_sig <- read.xlsx("MaAsLin2_res_sig.xlsx", sheet = 1)
+unique(species_sig$feature)
+
+rel_species_sel <- rel_species[unique(species_sig$feature),]
+#--------------------------------------------------------------
+options(limit=T)
+library(openxlsx)
+library(doParallel)
+library(parallel)
+library(NMF)
+
+#export OPENBLAS_NUM_THREADS=8
+estim.r <- nmf(x = as.matrix(rel_species_sel), rank = 2:20, 
+               nrun = 10, seed = 123, method = "brunet", .opt = "vp32")
+
+pdf(file = "estim.r.pdf", width = 14, height = 10)
+plot(estim.r)
+dev.off()
+
+pdf(file = "cophenetic.pdf", width = 6, height = 6)
+plot(2:20, estim.r$measures$cophenetic, type="b", col="purple")
+dev.off()
+
+coph <- estim.r$measures$cophenetic
+
+coph_diff <- NULL
+for (i in 2:length(coph)){
+  coph_diff <- c(coph_diff, coph[i-1]-coph[i])
+}
+k.best <- which.max(coph_diff)+1
+#-------------------------------------------------------------
+#NMF again use the best rank value
+res <- nmf(x = as.matrix(rel_species_sel[rowSums(rel_species_sel) > 0,]), rank = k.best, nrun=50, seed = 1234, method = "brunet")
+
+col <- paletteer::paletteer_dynamic(palette = "cartography::blue.pal", n = 20)
+pdf(file = "basismap.pdf", width = 8, height = 10, onefile = F)
+basismap(res, color = col)
+dev.off()
+
+group <- predict(res)
+table(group)[order(table(group), decreasing = T)]
+write.xlsx(x = as.data.frame(group), file = "group.xlsx", rowNames = T) #Vagitype results
+#-------------------------------------------------------------
+pdf(file = "consensusmap.pdf", width = 9, height = 8)
+consensusmap(res, labRow = NA, labCol = NA, 
+             annColors = list(c("1"="#42B540", "2"="#7F3C8D","3"="#FFED6F","4"="#E9CF91",
+                                "5"="#A5AA99","6"="#F8766D","7"="#95C6C6","8"="#D02090",
+                                "9"="#E73F74","10"="#219EBC","11"="#000000CC","12"="#E98DAF",
+                                "13"="#FEB705", "14"="#0E606B", "15"="#BEBADA")),
+             tracks = c("basis:", "silhouette:"),
+             color = colorRampPalette(c("#49B1DD", "white", "#E73F74"))(100))
+dev.off()
+####################################################################################
+library(ggplot2)
+
+my_theme2 <- theme_bw() + theme(axis.text.x = element_text(hjust = 0.5, size = 12, color = "black"),
+                                axis.text.y = element_text(hjust = 0.5, size = 12, color = "black"),
+                                axis.title = element_text(size = 12, color = "black"),
+                                plot.title = element_text(size = 16, color = "black"),
+                                axis.ticks = element_line(linewidth = 0.2, color="black"),
+                                axis.ticks.length = unit(0.2, "cm"),
+                                strip.text = element_text(size = 12),
+                                panel.grid.major = element_blank(), 
+                                panel.grid.minor = element_blank())
+
+group <- read.xlsx("group.xlsx", sheet = 1)
+rel_species_sel.plot <- as.data.frame(t(rel_species_sel))
+
+rel_species_sel.plot$subType <- group$group_use[match(rownames(rel_species_sel.plot), group$Sample)]
+rel_species_sel.plot <- aggregate(x = rel_species_sel.plot[,-ncol(rel_species_sel.plot)], 
+                                  by = list(rel_species_sel.plot[,ncol(rel_species_sel.plot)]), FUN = mean)
+rownames(rel_species_sel.plot) <- rel_species_sel.plot$Group.1
+rel_species_sel.plot <- rel_species_sel.plot[,-1]
+rel_species_sel.plot <- as.data.frame(t(rel_species_sel.plot))
+
+for (i in 1:nrow(rel_species_sel.plot)) {
+  tmp <- rownames(rel_species_sel.plot)[i]
+  print(paste(tmp, colnames(rel_species_sel.plot)[which(rel_species_sel.plot[tmp,] %in% max(rel_species_sel.plot[tmp, -ncol(rel_species_sel.plot)]))]))
+}
+
+rel_species_sel.plot <- cinaR::scale_rows(rel_species_sel.plot)
+
+rel_species_sel.plot$Species <- rownames(rel_species_sel.plot)
+data.handle.plot <- reshape2::melt(rel_species_sel.plot)
+
+colnames(data.handle.plot) <- c("species","sample","value")
+
+data.handle.plot$sample <- factor(data.handle.plot$sample, levels = c("I-I", "I-II","II-I", "II-II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII"))
+data.handle.plot$species <- factor(data.handle.plot$species, levels = c("Lactobacillus_crispatus", 
+                                                                        "Lactobacillus_coleohominis", "Cutibacterium_acnes",
+                                                                        "Lactobacillus_vaginalis",
+                                                                        "Lactobacillus_iners",
+                                                                        "Gardnerella_vaginalis", 
+                                                                        "Lactobacillus_gasseri",
+                                                                        "Lactobacillus_jensenii", 
+                                                                        "Sneathia_sanguinegens", "Sneathia_amnii", "Eggerthella_sinensis", "Megasphaera", "BVAB1", "Prevotella_buccalis", "Prevotella_amnii", "Prevotella_colorans",   
+                                                                        "Fannyhessea_vaginae",
+                                                                        "Prevotella_bivia", "Aerococcus_christensenii", "Metamycoplasma_hominis",
+                                                                        "Prevotella_timonensis", "Prevotella_corporis", "Prevotella_disiens", "Peptoniphilus", "Peptoniphilus_indolicus", "Rhodococcus", "Anaerococcus_lactolyticus", "Finegoldia_magna", "Porphyromonas_uenonis", "Dietzia",  "Veillonella_montpellierensis", "Dialister", "Dialister_micraerophilus",
+                                                                        "Ureaplasma_parvum", "Ureaplasma_urealyticum",
+                                                                        "Streptococcus_anginosus", "Escherichia-Shigella_coli", "Acinetobacter",
+                                                                        "Streptococcus_gallolyticus", "Streptococcus", "Enterococcus_faecalis", "Bifidobacterium_longum", "Bifidobacterium_breve", 
+                                                                        "Lactobacillus_mucosae", "Lactobacillus_johnsonii"))
+
+p <- ggplot(data.handle.plot, aes(x = sample, y = species, size = value, color = value)) 
+p <- p + geom_point()
+p <- p + scale_color_gradientn(colours = c("#49B1DD", "#95C6C6", "#E9CF91", "#FFED6F", "#E98DAF", "#E73F74"))
+p <- p + scale_size(range = c(2, 7))
+p <- p + my_theme2
+p
+ggsave(plot = p, filename = "marker_species.pdf", width = 8, height = 14)
+####################################################################################
+alpha_plot <- read.delim("alpha_ASV_10k.txt", sep = "\t", header = T, check.names = F, stringsAsFactors = F)
+alpha_plot <- merge(alpha_plot, group[,c("Sample", "group_use")], by.x = "Sample", by.y = "Sample")
+
+p <- ggplot(alpha_plot, mapping = aes(x = shannon_e, 
+                                      y = factor(group_use, levels = rev(c("I-I", "I-II", "II-I", "II-II", "III", "IV", "V", "VI", 
+                                                                    "VII", "VIII", "IX", "X", "XI", "XII", "XIII"))), 
+                                      fill = as.factor(group_use)))
+p <- p + geom_boxplot(outlier.shape = 20, col = "black", outlier.alpha = 0.6, notch = F, width = 0.5)
+p <- p + stat_boxplot(geom = "errorbar", width = 0.2)
+p <- p + scale_fill_manual(values = c("I-I"="#E98DAF", "I-II"="#11A579",
+                                      "II-I"="#219EBC", "II-II"="#3969AC",
+                                      "III"="#FFED6F","IV"="#0E606B","V"="#E9CF91",
+                                      "VI"="#95C6C6","VII"="#7F3C8D","VIII"="#F8766D",
+                                      "IX"="#E73F74","X"="#FEB705","XI"="#BEBADA","XII"="#A5AA99",
+                                      "XIII"="#000000CC"))
+p <- p + geom_vline(xintercept = mean(alpha_plot$shannon_e))
+p <- p + my_theme2
+p
+ggsave(p , filename = paste0("Shannon", ".pdf"), device = "pdf", width = 3.75, height = 6)
+
