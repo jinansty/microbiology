@@ -1,0 +1,34 @@
+
+library(ggplot2)
+library(RColorBrewer)
+
+my_theme2 <- theme_bw() + theme(axis.text.x = element_text(hjust = 0.5, size = 12, color = "black"),
+                                axis.text.y = element_text(hjust = 0.5, size = 12, color = "black"),
+                                axis.title = element_text(size = 14, color = "black"),
+                                plot.title = element_text(size = 26, color = "black"),
+                                axis.ticks = element_line(linewidth = 0.2, color="black"),
+                                axis.ticks.length = unit(0.2, "cm"),
+                                strip.text = element_text(size = 20),
+                                panel.grid.major = element_blank(), 
+                                panel.grid.minor = element_blank())
+
+res_shannon_sel <- res_shannon[res_shannon$Factor %in% c(targets1, targets2, targets3),]
+
+Variable_group <- read.xlsx("metadata.new.xlsx", sheet = 2)
+res_shannon_sel <- merge(res_shannon_sel, Variable_group, by.x = "Factor", by.y = "Final_var")
+
+res_shannon_sel <- res_shannon_sel[order(res_shannon_sel$rho),]
+res_shannon_sel$Factor <- factor(res_shannon_sel$Factor, levels = res_shannon_sel$Factor)
+
+p <- ggplot(data=res_shannon_sel, aes(x=factor(Factor, levels = Factor, labels = Name), y=rho, fill = as.factor(Category)))
+p <- p + geom_bar(stat = "identity", position = "dodge", width = 0.7)
+p <- p + coord_flip()
+p <- p + geom_text(aes(label = ifelse(test = fdr < 0.001, yes = "***", 
+                                      no = ifelse(test = fdr < 0.01, yes = "**", no = "*"))), 
+                   position=position_dodge(width = 1), vjust= 0.55, color="black", size=5) 
+p <- p + scale_fill_manual(values = c("Laboratory measures" = "#49B1DD", "OB-GYN related" = "#E98DAF", "Lifestyle" = "#E9CF91", "Social factors" = "#95C6C6", 
+                                      "Vaginal dysbiosis" = "#FEB705", "Female physiology" = "#E73F74", "Environment" = "#7F3C8D", "Anthropometrics" = "#008695"))
+p <- p + ylab("Spearman rho Value") + xlab("")
+p <- p + my_theme2
+p
+ggsave(filename = "Spearman_shannon.pdf", plot = p, device = "pdf", width = 6, height = 5.5)
