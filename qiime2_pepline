@@ -1,0 +1,46 @@
+
+#Activate the environment and set the TMPDIR
+conda activate qiime2
+export TMPDIR=/disk/raid6_36TB/Data_16S/qiime2_handle
+
+#Import the sequence data
+qiime tools import --type 'SampleData[SequencesWithQuality]' --input-format SingleEndFastqManifestPhred33V2 --input-path manifest.txt --output-path vag_filter_merge.qza
+
+#QC summarize
+qiime demux summarize --i-data vag_filter_merge.qza --o-visualization vag_filter_merge.qzv
+
+#dada2 pepline
+qiime dada2 denoise-single --p-n-threads 32 --p-trim-left 0 --p-trunc-len 0 --p-max-ee 1.2 --i-demultiplexed-seqs vag_filter_merge.qza --o-table vag_filter_merge_dada2_table.qza --o-representative-sequences vag_filter_merge_dada2_rep_seq.qza --o-denoising-stats vag_filter_merge_dada2_stats.qza
+qiime metadata tabulate --m-input-file vag_filter_merge_dada2_stats.qza --o-visualization vag_filter_merge_dada2_stats.qzv
+unzip vag_filter_merge_dada2_table.qza
+biom convert -i feature-table.biom -o vag_filter_merge_dada2_table.tsv --to-tsv
+qiime feature-table summarize --i-table vag_filter_merge_dada2_table.qza --o-visualization vag_filter_merge_dada2_table.qzv
+
+qiime feature-table tabulate-seqs --i-data vag_filter_merge_dada2_rep_seq.qza --o-visualization vag_filter_merge_dada2_rep_seq.qzv
+
+#Annotation
+usearch11 -sintax vag_filter_merge_dada2_sequences.fasta -sintax_cutoff 0.8 -db /opt/biosoft/usearch/rdp_16s_v18_sp.fa -strand both -tabbedout vag_filter_merge_dada2_taxonomy.txt
+qiime feature-classifier classify-sklearn --p-n-jobs 32 --i-reads vag_filter_merge_dada2_rep_seq.qza --i-classifier /opt/genome/qiime2_database/Bacteria_v1v2/silva-138-99-v1v2-classifier.qza --o-classification vag_filter_merge_dada2_rep_seq_taxonomy.qza
+qiime metadata tabulate --m-input-file vag_filter_merge_dada2_rep_seq_taxonomy.qza --o-visualization vag_filter_merge_dada2_rep_seq_taxonomy.qzv
+
+#Remove the rare ASVs by R
+
+#usearch 11 analysis
+usearch11 -otutab_stats taxa_optimal.txt -output ASV_use_report.txt
+usearch11 -calc_distmx repSeq_use.fasta -tabbedout ASV_distmx.txt
+
+#core ASVs
+usearch11 -otutab_core taxa_optimal.txt -distmxin ASV_distmx.txt -tabbedout core_ASV_res.txt
+
+#alpha diversity
+usearch11 -otutab_rare taxa_optimal.txt -sample_size 10000 -output ASVtab_uparse_10k.txt
+usearch11 -alpha_div ASVtab_uparse_10k.txt -output alpha_ASV_10k.txt
+usearch10 -alpha_div_rare ASVtab_uparse_10k.txt -output alpha_rare.txt
+
+#beta diversity
+usearch11 -cluster_aggd ASV_distmx.txt -treeout ASV_uparse.tree
+mkdir beta
+usearch11 -beta_div ASVtab_uparse_10k.txt -tree ASV_uparse.tree -filename_prefix beta/ -metrics bray_curtis,jaccard,unifrac,unifrac_binary
+
+#PICRUSt2
+picrust2_pipeline.py -s repSeq_use.fasta -i ASV_count.txt -o picrust2_out
