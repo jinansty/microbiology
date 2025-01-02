@@ -138,7 +138,6 @@ pheatmap(a, cellwidth = 10, cellheight = 10, fontsize = 7,
   clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean",
   legend = TRUE, border_color = "white",
   color = colorRampPalette(c("#20B2AA", "#F5F5F5", "#FF69B4"))(40),
-  breaks = breaks, gaps_col = c(3,5,6,9,11,14,16,19,22,24,27,30,34,36,37,42,48,50,53,56,57,58),
-  treeheight_col = 0, display_numbers = matrix(ifelse(a > 0, "+", ifelse(a < 0, "-", "")), nrow(a)))
+  breaks = breaks, treeheight_col = 0, display_numbers = matrix(ifelse(a > 0, "+", ifelse(a < 0, "-", "")), nrow(a)))
 dev.off()
 
