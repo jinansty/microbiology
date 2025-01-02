@@ -1,0 +1,55 @@
+
+library(openxlsx)
+library(ggplot2)
+library(tidydr)
+
+rel_species <- read.xlsx("Species_rel.xlsx", sheet = 1, rowNames = T)
+group <- read.xlsx("Vagitype.xlsx", sheet = 1)
+
+my_theme <- theme_void()+theme(plot.margin = margin(5.5, 15, 5.5, 5.5))+
+  theme_dr(xlength = 0.2, ylength = 0.2,
+           arrow = grid::arrow(length = unit(0.1, units = "inches"), ends = "last", type = "closed"))+
+  theme(panel.grid = element_blank(), 
+        plot.title = element_text(size = 18, color = "black"),
+        axis.title = element_text(size = 15, color = "black"))
+
+species_45 <- read.xlsx("species_anno.xlsx", sheet = 2)
+############################################################################
+library(M3C)
+library(ggunchull)
+
+rel_species <- rel_species[,group$Sample]
+all.equal(colnames(rel_species), group$Sample)
+group$group_use <- factor(group$group_use, levels = c("I-I", "I-II", "II-I", "II-II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII"))
+
+p <- umap(rel_species, labels=group$group_use, dotsize = 1, seed = 1)
+p <- p + scale_color_manual(values = c("I-I"="#E98DAF", "I-II"="#11A579",
+                                       "II-I"="#219EBC", "II-II"="#3969AC",
+                                       "III"="#FFED6F","IV"="#0E606B","V"="#E9CF91",
+                                       "VI"="#95C6C6","VII"="#7F3C8D","VIII"="#F8766D",
+                                       "IX"="#E73F74","X"="#FEB705","XI"="#BEBADA","XII"="#A5AA99",
+                                       "XIII"="#000000CC"))
+p <- p + my_theme
+p
+ggsave(plot = p, filename = "umap_org.pdf", width = 7, height = 6, dpi = 300)
+############################################################################
+library(stringr)
+library(moonBook)
+library(webr)
+
+df <- as.data.frame(table(group$group_use))
+df$prop <- df$Freq/sum(df$Freq)
+write.xlsx(df, file = "prop.xlsx", asTable = T, overwrite = T)
+
+df$Var1 <- factor(df$Var1, levels = c("I-I", "I-II", "II-I", "II-II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII"))
+p <- PieDonut(df, aes(Var1, count = prop, fill = Var1), r0 = 0.65, explode = c(5,7,9,11,13,15), start=3*pi/3)
+p <- p + theme_void() +  scale_fill_manual(values = c("I-I"="#E98DAF", "I-II"="#11A579",
+                                                      "II-I"="#219EBC", "II-II"="#3969AC",
+                                                      "III"="#FFED6F","IV"="#0E606B","V"="#E9CF91",
+                                                      "VI"="#95C6C6","VII"="#7F3C8D","VIII"="#F8766D",
+                                                      "IX"="#E73F74","X"="#FEB705","XI"="#BEBADA","XII"="#A5AA99",
+                                                      "XIII"="#000000CC")) 
+p
+ggsave(plot = p, filename = "pie.pdf", width = 5, height = 5, dpi = 300)
+
+
