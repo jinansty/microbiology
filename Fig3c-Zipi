@@ -1,1 +1,49 @@
 
+comm_membership <- membership(lc)
+node_degree <- degree(igraph)
+
+module_mean <- tapply(node_degree, comm_membership, mean)
+module_sd <- tapply(node_degree, comm_membership, sd)
+
+# Zi analysis
+Zi <- ifelse(module_sd[comm_membership] != 0,
+             (node_degree - module_mean[comm_membership]) / module_sd[comm_membership],
+             0)
+
+module_connections <- matrix(0, nrow=length(V(igraph)), ncol=max(comm_membership))
+
+for (v in V(igraph)) {
+  neighbors_of_v <- neighbors(igraph, v)
+  modules_of_neighbors <- comm_membership[neighbors_of_v]
+  module_connections[v, ] <- table(factor(modules_of_neighbors, levels=1:max(comm_membership)))
+}
+
+Pi <- 1 - rowSums((module_connections / node_degree)^2)
+
+zi_pi_metrics <- data.frame(name = V(igraph)$name, Zi = Zi, Pi = Pi)
+
+zi_pi_metrics$type <- ifelse(zi_pi_metrics$Zi > 2.4 & zi_pi_metrics$Pi < 0.62, "Module hubs",
+                             ifelse(zi_pi_metrics$Zi < 2.4 & zi_pi_metrics$Pi > 0.62, "Connectors",
+                                    ifelse(zi_pi_metrics$Zi > 2.4 & zi_pi_metrics$Pi > 0.62, "Network hubs", "Peripherals")))
+write.xlsx(zi_pi_metrics, "zi_pi_metrics.xlsx", asTable = T, overwrite = T)
+#------------------------------------------------------------
+library(ggplot2)
+library(ggrepel)
+
+p <- ggplot(zi_pi_metrics, aes(x = Pi, y = Zi, color = type))
+p <- p + geom_point(alpha = 0.7, size = 3)
+p <- p + labs(x = "Among-module conectivities (Pi)",
+              y = "Within-module conectivities (Zi)",
+              color = "Node Type")
+p <- p + geom_label_repel(aes(label = name), data = zi_pi_metrics[zi_pi_metrics$Zi > 1,],
+                          box.padding = 0.25, max.overlaps = 20,
+                          nudge_x = -0.3, nudge_y = 0.2,
+                          segment.curvature = -0.1, segment.ncp = 3,
+                          direction = "y", segment.angle = 20, hjust = "left")
+p <- p + scale_color_manual(values = c("Network hubs" = "#E98DAF", "Module hubs" = "#49B1DD", "Connectors" = "#0E606B", "Peripherals" = "#E9CF91"))
+
+p <- p + geom_vline(xintercept = 0.62, linetype = "dashed", alpha = 0.5) +
+  geom_hline(yintercept = 2.47, linetype = "dashed", alpha = 0.5)
+p <- p + my_theme2
+p
+ggsave(plot = p, filename = "Zi-pi.pdf", width = 4, height = 7)
